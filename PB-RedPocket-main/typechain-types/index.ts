@@ -60,3 +60,7 @@ export type { IAccount } from "./contracts/interfaces/IAccount";
 export { IAccount__factory } from "./factories/contracts/interfaces/IAccount__factory";
 export type { IEntryPoint } from "./contracts/interfaces/IEntryPoint";
 export { IEntryPoint__factory } from "./factories/contracts/interfaces/IEntryPoint__factory";
+export type { ProxyAdmin } from "./contracts/proxy/ProxyAdmin";
+export { ProxyAdmin__factory } from "./factories/contracts/proxy/ProxyAdmin__factory";
+export type { TransparentUpgradeableProxy } from "./contracts/proxy/TransparentUpgradeableProxy";
+export { TransparentUpgradeableProxy__factory } from "./factories/contracts/proxy/TransparentUpgradeableProxy__factory";

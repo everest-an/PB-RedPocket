@@ -1322,6 +1322,80 @@
       "artifacts": [
         "RedPocket"
       ]
+    },
+    "E:\\RedPocket\\PB-RedPocket-main\\PB-RedPocket-main\\contracts\\proxy\\ProxyAdmin.sol": {
+      "lastModificationDate": 1768033401074,
+      "contentHash": "86ecb2d5a5522fa74ae0dfa7fb2f4e06",
+      "sourceName": "contracts/proxy/ProxyAdmin.sol",
+      "solcConfig": {
+        "version": "0.8.24",
+        "settings": {
+          "optimizer": {
+            "enabled": true,
+            "runs": 200
+          },
+          "evmVersion": "paris",
+          "outputSelection": {
+            "*": {
+              "*": [
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata"
+              ],
+              "": [
+                "ast"
+              ]
+            }
+          }
+        }
+      },
+      "imports": [
+        "./TransparentUpgradeableProxy.sol"
+      ],
+      "versionPragmas": [
+        "^0.8.19"
+      ],
+      "artifacts": [
+        "ProxyAdmin"
+      ]
+    },
+    "E:\\RedPocket\\PB-RedPocket-main\\PB-RedPocket-main\\contracts\\proxy\\TransparentUpgradeableProxy.sol": {
+      "lastModificationDate": 1768033359267,
+      "contentHash": "e381966218acd3218a94fa44309aae83",
+      "sourceName": "contracts/proxy/TransparentUpgradeableProxy.sol",
+      "solcConfig": {
+        "version": "0.8.24",
+        "settings": {
+          "optimizer": {
+            "enabled": true,
+            "runs": 200
+          },
+          "evmVersion": "paris",
+          "outputSelection": {
+            "*": {
+              "*": [
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata"
+              ],
+              "": [
+                "ast"
+              ]
+            }
+          }
+        }
+      },
+      "imports": [],
+      "versionPragmas": [
+        "^0.8.19"
+      ],
+      "artifacts": [
+        "TransparentUpgradeableProxy"
+      ]
     }
   }
 }
