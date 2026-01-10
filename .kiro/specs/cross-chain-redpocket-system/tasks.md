@@ -83,20 +83,20 @@ This implementation plan focuses on building a production-ready cross-chain Web3
     - **Property 11: Automatic Chain Failover**
     - **Validates: Requirements 3.3, 3.5, 9.5**
 
-- [ ] 6. Build core API and database infrastructure
-  - [ ] 6.1 Set up PostgreSQL database with Redis caching
+- [x] 6. Build core API and database infrastructure
+  - [x] 6.1 Set up PostgreSQL database with Redis caching
     - Design and implement database schema for all entities
     - Configure Redis for session management and caching
     - Set up database migrations and connection pooling
     - _Requirements: 9.2_
 
-  - [ ] 6.2 Implement core API endpoints
+  - [x] 6.2 Implement core API endpoints
     - Build RedPocket creation, claiming, and querying APIs
     - Add user authentication and wallet management endpoints
     - Implement enterprise dashboard and reporting APIs
     - _Requirements: 5.1, 6.1, 6.2_
 
-  - [ ] 6.3 Write property tests for API functionality
+  - [x] 6.3 Write property tests for API functionality
     - **Property 13: Real-Time Dashboard Accuracy**
     - **Property 17: Reward Aggregation Accuracy**
     - **Validates: Requirements 5.1, 6.1**
