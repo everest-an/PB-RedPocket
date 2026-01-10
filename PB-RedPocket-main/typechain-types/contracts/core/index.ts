@@ -2,5 +2,7 @@
 /* tslint:disable */
 /* eslint-disable */
 export type { Paymaster } from "./Paymaster";
+export type { RedPocket } from "./RedPocket";
 export type { SimpleAccount } from "./SimpleAccount";
 export type { SimpleAccountFactory } from "./SimpleAccountFactory";
+export type { TokenVault } from "./TokenVault";
