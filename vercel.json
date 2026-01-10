@@ -7,7 +7,7 @@
   "rewrites": [
     {
       "source": "/api/backend/:path*",
-      "destination": "https://api.protocolbanks.com/:path*"
+      "destination": "http://52.91.244.89:8080/:path*"
     }
   ],
   "headers": [
@@ -22,8 +22,8 @@
     }
   ],
   "env": {
-    "NEXT_PUBLIC_API_URL": "https://api.protocolbanks.com",
+    "NEXT_PUBLIC_API_URL": "http://52.91.244.89:8080",
     "NEXT_PUBLIC_CHAIN_ID": "137",
-    "NEXT_PUBLIC_APP_URL": "https://protocolbanks.com"
+    "NEXT_PUBLIC_APP_URL": "https://v0-redpocket.vercel.app"
   }
 }
