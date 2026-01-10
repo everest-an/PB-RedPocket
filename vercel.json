@@ -1,0 +1,29 @@
+{
+  "buildCommand": "npm run build",
+  "devCommand": "npm run dev",
+  "installCommand": "npm install",
+  "framework": "nextjs",
+  "regions": ["sfo1"],
+  "rewrites": [
+    {
+      "source": "/api/backend/:path*",
+      "destination": "https://api.protocolbanks.com/:path*"
+    }
+  ],
+  "headers": [
+    {
+      "source": "/api/backend/:path*",
+      "headers": [
+        {
+          "key": "Access-Control-Allow-Origin",
+          "value": "*"
+        }
+      ]
+    }
+  ],
+  "env": {
+    "NEXT_PUBLIC_API_URL": "https://api.protocolbanks.com",
+    "NEXT_PUBLIC_CHAIN_ID": "137",
+    "NEXT_PUBLIC_APP_URL": "https://protocolbanks.com"
+  }
+}

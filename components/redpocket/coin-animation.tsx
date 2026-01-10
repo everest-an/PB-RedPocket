@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useState, useMemo } from "react"
 import { cn } from "@/lib/utils"
 
 type ColorTheme = "fire" | "ocean"
@@ -16,27 +16,28 @@ export function CoinAnimation({ isOpen, amount, token, colorTheme = "fire" }: Co
   const [showCoins, setShowCoins] = useState(false)
   const [confetti, setConfetti] = useState<Array<{ id: number; left: number; delay: number; color: string }>>([])
 
-  const themeConfig = {
-    fire: {
-      coin: "from-yellow-400 via-yellow-500 to-orange-500",
-      coinShadow: "shadow-[0_0_40px_rgba(255,200,0,0.5)]",
-      coinText: "text-yellow-900",
-      amountGradient: "from-yellow-400 via-orange-400 to-pink-400",
-      confettiColors: ["#FF7850", "#FF5096", "#FFD700", "#FF6B6B", "#FFA500"],
-    },
-    ocean: {
-      coin: "from-cyan-400 via-blue-500 to-indigo-500",
-      coinShadow: "shadow-[0_0_40px_rgba(100,200,255,0.5)]",
-      coinText: "text-blue-900",
-      amountGradient: "from-cyan-400 via-blue-400 to-purple-400",
-      confettiColors: ["#06B6D4", "#3B82F6", "#8B5CF6", "#22D3EE", "#10B981"],
-    },
-  }
-
-  const colors = themeConfig[colorTheme]
+  const colors = useMemo(() => {
+    const themeConfig = {
+      fire: {
+        coin: "from-yellow-400 via-yellow-500 to-orange-500",
+        coinShadow: "shadow-[0_0_40px_rgba(255,200,0,0.5)]",
+        coinText: "text-yellow-900",
+        amountGradient: "from-yellow-400 via-orange-400 to-pink-400",
+        confettiColors: ["#FF7850", "#FF5096", "#FFD700", "#FF6B6B", "#FFA500"],
+      },
+      ocean: {
+        coin: "from-cyan-400 via-blue-500 to-indigo-500",
+        coinShadow: "shadow-[0_0_40px_rgba(100,200,255,0.5)]",
+        coinText: "text-blue-900",
+        amountGradient: "from-cyan-400 via-blue-400 to-purple-400",
+        confettiColors: ["#06B6D4", "#3B82F6", "#8B5CF6", "#22D3EE", "#10B981"],
+      },
+    }
+    return themeConfig[colorTheme]
+  }, [colorTheme])
 
   useEffect(() => {
-    if (isOpen) {
+    if (isOpen && !showCoins) {
       setShowCoins(true)
       const newConfetti = Array.from({ length: 30 }, (_, i) => ({
         id: i,
@@ -45,8 +46,10 @@ export function CoinAnimation({ isOpen, amount, token, colorTheme = "fire" }: Co
         color: colors.confettiColors[Math.floor(Math.random() * colors.confettiColors.length)],
       }))
       setConfetti(newConfetti)
+    } else if (!isOpen && showCoins) {
+      setShowCoins(false)
     }
-  }, [isOpen, colors.confettiColors])
+  }, [isOpen, showCoins, colors.confettiColors])
 
   if (!isOpen) return null
 
