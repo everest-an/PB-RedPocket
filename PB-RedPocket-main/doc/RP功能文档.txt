@@ -1,0 +1,120 @@
+这份**项目功能规格文档（Functional Specification Document）旨在详细定义 Protocol Bank 的产品逻辑。它不仅是一个红包工具，更是一个“嵌入式支付+自动化记账”**的综合系统。
+
+Protocol Bank 项目功能规格文档 (FSD)
+1. 文档概述
+本文档定义了 Protocol Bank 组件的核心功能。该组件旨在通过四大社交/协作平台（WhatsApp, Discord, Telegram, GitHub）提供**无感（Seamless）**的 Web3 激励分发，并为企业提供自动化的财务报表管理。
+
+2. 核心功能架构
+系统分为三个核心端：
+1.
+分发端（Bot/Action）： 嵌入在社交平台的交互接口。
+2.
+3.
+用户端（Claiming Page）： 社交用户领取奖励的极简 H5 页面。
+4.
+5.
+管理端（Enterprise Portal）： 企业级财务看板与个人资产管理中心。
+6.
+
+3. 详细功能模块
+3.1 跨平台嵌入式发奖模块
+支持在不同环境下通过指令或卡片发起激励：
+平台	触发机制	交互形式
+GitHub	GitHub Action / 评论指令	在 PR 或 Issue 下生成带有领取链接的 Markdown 卡片。
+Telegram	Bot 指令 (/send)	弹出 Inline Button 或生成“拼手气红包”卡片。
+Discord	Slash Command (/reward)	发送带有按钮的互动 Embed 消息。
+WhatsApp	H5 分享链接	通过消息发送一个具有身份校验功能的“领取短链接”。
+3.2 无感账户生成模块 (Frictionless Onboarding)
+这是用户“无感”体验的核心，解决“先有钱包还是先领钱”的悖论：
+
+社交身份映射： 系统后台建立 Platform_ID (如 GitHub UID) 与 Smart Contract Account (AA 钱包) 的映射关系。
+
+
+即时激活： * 用户点击领取链接，通过 OAuth 2.0（或 WhatsApp 校验）验证身份。
+
+o
+Privy/Web3Auth 集成： 后台静默为用户创建一个非托管钱包（MPC 或 AA 架构）。
+o
+o
+预留额度： 允许在用户尚未登录前，先将资金锁定在与其社交 ID 绑定的虚拟子账户中。
+o
+3.3 企业财务审计看板 (Enterprise Dashboard)
+为企业解决“钱去哪了”的问题，直接对接 Web3 版本的 QuickBooks 逻辑：
+
+多维度对账单：
+
+o
+交易溯源： 每笔支出自动关联社交平台的任务链接（如：关联到特定的 GitHub PR）。
+o
+o
+自动分类标签： 发奖时指定的标签（如：#DevBounty, #Marketing）自动生成扇形统计图。
+o
+
+导出与合规： 支持导出符合会计标准的 CSV/PDF，包含实时汇率（Fiat Valuation）。
+
+
+资金池管理： 企业主账户统一充值，多平台共享额度，支持设置各平台的支出限额。
+
+3.4 个人提现中心 (User Portal)
+用户管理其在所有平台获得的所有奖励：
+
+余额聚合： 用户登录 protocolbank.com，自动合并展示其在 GitHub、TG、WhatsApp 领到的所有资金。
+
+
+灵活提现：
+
+o
+Web3 提现： 一键发送到主流钱包（MetaMask/OKX）。
+o
+o
+Gas 代付： 用户首次领取/提现时，由平台代付 Gas（或从奖励中扣除），用户无需持有原生代币（如 ETH/SOL）。
+o
+
+4. 关键业务流程
+场景：GitHub 开发者赏金流程
+1.
+触发： 项目方在 GitHub 评论 /reward @dev_user 50 USDC --tag "SecurityFix"。
+2.
+3.
+静默记账： Protocol Bank 后台生成一笔“待领取”记录，并打上“安全修复”标签。
+4.
+5.
+无感领取： dev_user 点击卡片，通过 GitHub 账号登录 H5。
+6.
+7.
+钱包生成： 系统识别到该用户无钱包，静默生成 AA 钱包，50 USDC 到账。
+8.
+9.
+对账： 项目方在后台看到：1/9/2026 - 50 USDC - GitHub PR #102 - 已领取。
+10.
+
+5. 技术需求总结 (Technical Stack)
+
+底层协议： ERC-4337 (账户抽象) 实现免私钥和 Gas 代付。
+
+
+钱包即服务 (WaaS)： Privy 或 Dynamic (处理社交登录与 MPC 钱包生成)。
+
+
+后端： Node.js + NestJS (多平台 Webhook 处理中心)。
+
+
+区块链选择： 建议优先支持 Base 或 Polygon (极低成本且速度快)。
+
+
+API 集成： * GitHub API： 监控 Repo 事件。
+
+o
+Twilio/WhatsApp Business： 触发 WhatsApp 消息。
+o
+
+6. 安全与风控
+
+身份防伪： 严格校验社交平台的签名/OAuth Token，防止冒领。
+
+
+羊毛党防护： 针对红包功能设置“新账号限制”或“社交账号活跃度阈值”。
+
+
+资金隔离： 企业资金通过智能合约锁定，平台无权私自挪用。
+

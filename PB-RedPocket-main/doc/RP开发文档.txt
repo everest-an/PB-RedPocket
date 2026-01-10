@@ -1,0 +1,281 @@
+Protocol Bank 项目开发技术文档 v1.0
+1. 技术栈选型 (Tech Stack)
+模块	技术选型	理由
+前端 (Dashboard & H5)	Next.js 14 (App Router) + Tailwind CSS	高性能 SSR，SEO 友好，适合构建 H5 领取页和管理后台。
+后端 (API & Job)	Node.js (NestJS)	模块化架构，易于管理多个社交平台的 Webhook 和业务逻辑。
+数据库	PostgreSQL (Supabase) + Redis	PG 处理财务关系数据，Redis 处理高并发抢红包锁。
+区块链基础设施	ERC-4337 (ZeroDev / Alchemy)	实现账户抽象（AA），做到无私钥、无 Gas 体验。
+身份验证 (WaaS)	Privy 或 Dynamic.xyz	专为 Web3 设计的嵌入式钱包，支持 Email/Social 登录生成钱包。
+智能合约	Solidity (Foundry 开发框架)	部署在 Base 或 Polygon (低 Gas，高吞吐)。
+消息服务	Twilio (WhatsApp), Telegram Bot API	处理社交平台的消息收发。
+
+2. 系统架构设计 (System Architecture)
+系统采用 “中心化调度 + 去中心化结算” 的混合架构。
+代码段
+graph TD
+    User[用户/开发者] -->|交互| Platforms[社交平台 (TG/Discord/GitHub/WhatsApp)]
+    Platforms -->|Webhook/API| CoreAPI[Protocol Bank 后端 (NestJS)]
+    
+    subgraph "Core Backend"
+        CoreAPI --> Auth[身份认证 (Privy)]
+        CoreAPI --> DB[(PostgreSQL 财务账本)]
+        CoreAPI --> Queue[消息队列 (BullMQ)]
+    end
+    
+    subgraph "Blockchain Layer (Base/Polygon)"
+        Paymaster[Gas 支付合约]
+        Vault[资金托管合约]
+        AA_Wallet[用户 AA 智能账户]
+    end
+    
+    CoreAPI -->|UserOp| AA_Wallet
+    AA_Wallet -->|调用| Vault
+    Paymaster -->|代付 Gas| AA_Wallet
+
+3. 数据库设计 (Database Schema)
+核心在于将“社交行为”映射为“财务条目”。
+3.1 Users (用户表)
+
+id: UUID
+
+
+social_id: String (e.g., GitHub ID, TG UserID, WhatsApp Phone)
+
+
+platform: Enum (github, telegram, discord, whatsapp)
+
+
+wallet_address: String (生成的 AA 钱包地址)
+
+
+email: String (可选，用于导出报表)
+
+3.2 Campaigns (发放批次/活动表)
+
+id: UUID
+
+
+org_id: UUID (企业/DAO ID)
+
+
+total_amount: Decimal (总金额)
+
+
+token_address: String (USDC/USDT 地址)
+
+
+category_tag: String (e.g., "Marketing", "DevBounty")
+
+
+proof_link: String (来源链接，如 GitHub PR URL)
+
+3.3 Transactions (财务流水/账本表)
+
+id: UUID
+
+
+campaign_id: FK
+
+
+recipient_user_id: FK
+
+
+amount: Decimal
+
+
+tx_hash: String (链上哈希)
+
+
+status: Enum (pending, claimed, withdrawn)
+
+
+claimed_at: Timestamp
+
+
+memo: JSON (存储社交平台的原始元数据，用于审计)
+
+
+4. 智能合约设计 (Smart Contracts)
+4.1 ProtocolBankVault.sol (资金池)
+企业充值资金的地方。
+
+deposit(address token, uint256 amount): 企业充值。
+
+
+distribute(address[] recipients, uint256[] amounts): 批量分发（仅限管理员/后端签名触发）。
+
+4.2 SmartAccountFactory.sol (AA 钱包工厂)
+
+利用 ERC-4337 标准，为每个新的社交 ID 部署一个确定性地址（Counterfactual Address）。即：用户还没领钱，地址已经生成好了。
+
+
+5. 各平台接入开发规范
+5.1 GitHub Action & Bot
+
+触发器： 监听 issue_comment 和 pull_request 事件。
+
+
+逻辑：
+
+1.
+检测评论内容 /reward @user 50 USDC。
+2.
+3.
+后端验证发起者权限（是否为 Repo 拥有者）。
+4.
+5.
+调用 GitHub API 获取 @user 的 ID。
+6.
+7.
+生成 H5 领取链接：https://protocolbank.com/claim?id=xyz&platform=github。
+8.
+9.
+调用 GitHub API 回复评论，渲染 Markdown 卡片。
+10.
+5.2 Telegram Bot
+
+交互： 使用 Telegram Web App (Mini App) 实现。
+
+
+流程：
+
+1.
+用户私聊 Bot /start 或点击群组中的“领取红包”。
+2.
+3.
+Bot 弹出一个 Webview。
+4.
+5.
+Webview 自动读取 initData (包含 TG 用户信息)。
+6.
+7.
+Privy SDK 在后台静默登录，检查钱包余额。
+8.
+9.
+显示“提现”按钮。
+10.
+5.3 WhatsApp (Twilio API)
+
+限制： WhatsApp 不支持复杂的 Bot UI。
+
+
+方案： Magic Link 模式。
+
+1.
+后端通过 Twilio 发送模板消息：“您有一笔奖励待领取：[短链接]”。
+2.
+3.
+用户点击跳转至 H5。
+4.
+5.
+H5 页面请求用户输入手机号进行 OTP 验证（或使用 WhatsApp Login API）。
+6.
+7.
+验证通过 -> 映射钱包 -> 转账。
+8.
+5.4 Discord Bot
+
+交互： Slash Command (/claim) + Ephemeral Message (仅对自己可见的消息)。
+
+
+逻辑： 类似于 GitHub，但利用 Discord 的 Interaction Response 确保隐私。
+
+
+6. 核心业务逻辑流程 (伪代码)
+6.1 生成 AA 钱包逻辑 (Backend)
+TypeScript
+async function getOrCreateWallet(socialId, platform) {
+  // 1. 检查 DB 是否存在
+  let user = await db.users.find({ socialId, platform });
+  
+  if (!user) {
+    // 2. 如果不存在，使用 Privy/ZeroDev SDK 计算 AA 地址
+    const aaAddress = await zeroDev.predictAddress(socialId);
+    
+    // 3. 存入 DB (此时链上还没部署合约，省 Gas)
+    user = await db.users.create({ 
+      socialId, 
+      platform, 
+      walletAddress: aaAddress 
+    });
+  }
+  return user.walletAddress;
+}
+6.2 提现逻辑 (Gasless Withdraw)
+TypeScript
+async function withdrawFunds(userId, destinationAddress, amount) {
+  // 1. 构建 UserOperation (ERC-4337 交易对象)
+  const userOp = await buildUserOp({
+    sender: userId.walletAddress,
+    data: encodeFunctionData("transfer", [destinationAddress, amount])
+  });
+
+  // 2. 由 Protocol Bank 的 Paymaster 签名支付 Gas
+  const signedUserOp = await paymaster.sign(userOp);
+
+  // 3. 发送到 Bundler 上链
+  const txHash = await bundler.send(signedUserOp);
+  
+  // 4. 更新 DB 状态
+  await db.transactions.update({ status: 'withdrawn', txHash });
+}
+
+7. 安全与合规 (Security & Compliance)
+1.
+限额控制 (Rate Limiting)：
+2.
+o
+单用户单日领取上限（防止羊毛党）。
+o
+o
+GitHub 账号必须注册满 30 天且有 commit 记录。
+o
+3.
+资金安全：
+4.
+o
+企业资金池采用多签管理 (Gnosis Safe)。
+o
+o
+后端无法直接挪用资金，必须由带有企业私钥签名的指令触发。
+o
+5.
+鉴权机制：
+6.
+o
+所有 H5 页面必须校验社交平台的 Signature 或 Auth Token，防止伪造请求。
+o
+
+8. 开发阶段规划 (Development Phases)
+Phase 1: 核心 API 与 Telegram 跑通 (2周)
+
+完成 Next.js + NestJS 基础搭建。
+
+
+集成 Privy，实现“手机号 -> AA 钱包”流程。
+
+
+开发 Telegram Bot 简单的“发”与“领”。
+
+Phase 2: GitHub Action 与 财务看板 (2周)
+
+开发 GitHub Action 插件。
+
+
+搭建 PostgreSQL 财务账本结构。
+
+
+开发 Dashboard：显示流水，支持 CSV 导出。
+
+Phase 3: 全平台接入与主网上线 (2周)
+
+接入 WhatsApp (Twilio)。
+
+
+部署至 Base Mainnet。
+
+
+对接 Swap 接口（可选），支持领取代币后自动换成 USDT。
+
+
+此文档可直接分发给后端工程师（关注 API 与 DB）、合约工程师（关注 AA 与 Vault）和前端工程师（关注 Dashboard 与 H5 交互）进行并行开发。
