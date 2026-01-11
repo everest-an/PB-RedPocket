@@ -53,12 +53,14 @@ func main() {
 	redPocketSvc := service.NewRedPocketService(redPocketRepo, claimRepo, walletSvc, rdb, cfg)
 	campaignSvc := service.NewCampaignService(campaignRepo, claimRepo, cfg)
 	xcmBridge := service.NewXCMBridge(cfg)
+	hyperbridgeSvc := service.NewHyperbridgeService(xcmBridge)
 
 	// Initialize handlers
 	redPocketHandler := handler.NewRedPocketHandler(redPocketSvc)
 	walletHandler := handler.NewWalletHandler(walletSvc)
 	campaignHandler := handler.NewCampaignHandler(campaignSvc)
 	xcmHandler := handler.NewXCMHandler(xcmBridge)
+	hyperbridgeHandler := handler.NewHyperbridgeHandler(hyperbridgeSvc)
 	healthHandler := handler.NewHealthHandler(db, rdb)
 
 	// Initialize bots
@@ -108,6 +110,17 @@ func main() {
 			xcm.GET("/balance", xcmHandler.GetBalance)
 			xcm.GET("/estimate-fee", xcmHandler.EstimateFee)
 			xcm.GET("/health/:chainId", xcmHandler.HealthCheck)
+		}
+
+		// Hyperbridge - Polkadot cross-chain bridge (public)
+		bridge := api.Group("/bridge")
+		{
+			bridge.GET("/balances", hyperbridgeHandler.GetMultiChainBalances)      // 并行查询多链余额
+			bridge.GET("/quotes", hyperbridgeHandler.GetBridgeQuotes)              // 获取所有协议报价
+			bridge.POST("/transfer", hyperbridgeHandler.InitiateBridgeTransfer)   // 发起跨链转账
+			bridge.GET("/status/:bridgeId", hyperbridgeHandler.GetBridgeStatus)   // 查询转账状态
+			bridge.POST("/auto", hyperbridgeHandler.AutoBridge)                   // 自动选择最优路径
+			bridge.GET("/best-source", hyperbridgeHandler.FindBestSource)         // 查找最佳源链
 		}
 
 		// Bot integration routes (public)
