@@ -51,11 +51,13 @@ func main() {
 	walletSvc := service.NewWalletService(walletRepo, cfg)
 	redPocketSvc := service.NewRedPocketService(redPocketRepo, claimRepo, walletSvc, rdb, cfg)
 	campaignSvc := service.NewCampaignService(campaignRepo, claimRepo, cfg)
+	xcmBridge := service.NewXCMBridge(cfg)
 
 	// Initialize handlers
 	redPocketHandler := handler.NewRedPocketHandler(redPocketSvc)
 	walletHandler := handler.NewWalletHandler(walletSvc)
 	campaignHandler := handler.NewCampaignHandler(campaignSvc)
+	xcmHandler := handler.NewXCMHandler(xcmBridge)
 	healthHandler := handler.NewHealthHandler(db, rdb)
 
 	// Setup Gin
@@ -87,6 +89,19 @@ func main() {
 		{
 			wallet.GET("/:userId", walletHandler.GetOrCreate)
 			wallet.POST("/withdraw", walletHandler.Withdraw)
+		}
+
+		// XCM Cross-chain routes (public)
+		xcm := api.Group("/xcm")
+		{
+			xcm.GET("/chains", xcmHandler.GetSupportedChains)
+			xcm.GET("/assets/:asset", xcmHandler.GetAssetInfo)
+			xcm.GET("/optimal-chain", xcmHandler.GetOptimalChain)
+			xcm.POST("/transfer", xcmHandler.InitiateTransfer)
+			xcm.GET("/transfer/:bridgeId", xcmHandler.GetTransferStatus)
+			xcm.GET("/balance", xcmHandler.GetBalance)
+			xcm.GET("/estimate-fee", xcmHandler.EstimateFee)
+			xcm.GET("/health/:chainId", xcmHandler.HealthCheck)
 		}
 
 		// Enterprise routes (requires auth)
