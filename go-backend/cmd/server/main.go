@@ -11,6 +11,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/joho/godotenv"
+	"github.com/protocolbank/redpocket-backend/internal/bot"
 	"github.com/protocolbank/redpocket-backend/internal/config"
 	"github.com/protocolbank/redpocket-backend/internal/handler"
 	"github.com/protocolbank/redpocket-backend/internal/middleware"
@@ -60,6 +61,11 @@ func main() {
 	xcmHandler := handler.NewXCMHandler(xcmBridge)
 	healthHandler := handler.NewHealthHandler(db, rdb)
 
+	// Initialize bots
+	telegramBot := bot.NewTelegramBot(cfg)
+	discordBot := bot.NewDiscordBot(cfg)
+	botHandler := handler.NewBotHandler(telegramBot, discordBot)
+
 	// Setup Gin
 	if cfg.Env == "production" {
 		gin.SetMode(gin.ReleaseMode)
@@ -102,6 +108,20 @@ func main() {
 			xcm.GET("/balance", xcmHandler.GetBalance)
 			xcm.GET("/estimate-fee", xcmHandler.EstimateFee)
 			xcm.GET("/health/:chainId", xcmHandler.HealthCheck)
+		}
+
+		// Bot integration routes (public)
+		botRoutes := api.Group("/bot")
+		{
+			botRoutes.GET("/status", botHandler.GetBotStatus)
+			// Telegram
+			botRoutes.POST("/telegram/webhook", botHandler.TelegramWebhook)
+			botRoutes.POST("/telegram/set-webhook", botHandler.SetTelegramWebhook)
+			botRoutes.GET("/telegram/webhook-info", botHandler.GetTelegramWebhookInfo)
+			botRoutes.POST("/telegram/notify", botHandler.SendTelegramNotification)
+			// Discord
+			botRoutes.POST("/discord/notify", botHandler.SendDiscordNotification)
+			botRoutes.POST("/discord/webhook", botHandler.SendDiscordWebhook)
 		}
 
 		// Enterprise routes (requires auth)
