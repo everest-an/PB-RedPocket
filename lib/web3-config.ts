@@ -66,7 +66,7 @@ export const wagmiStorage = createStorage({
 })
 
 // Vault contract address - configurable via environment
-export const VAULT_ADDRESS = (process.env.NEXT_PUBLIC_VAULT_ADDRESS || '0x742d35Cc6634C0532925a3b844Bc9e7595f5bE91') as `0x${string}`
+export const VAULT_ADDRESS = (process.env.NEXT_PUBLIC_VAULT_ADDRESS || '0x66794fC75C351ad9677cB00B2043868C11dfcadA') as `0x${string}`
 
 // Token addresses on different chains
 export const TOKEN_ADDRESSES: Record<string, Record<number, string>> = {

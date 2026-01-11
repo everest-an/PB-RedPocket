@@ -13,8 +13,10 @@ services:
       - RPC_URL=${RPC_URL:-https://mainnet.base.org}
       - CHAIN_ID=8453
       - USDC_ADDRESS=0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913
-      - BUNDLER_URL=${BUNDLER_URL}
-      - PAYMASTER_URL=${PAYMASTER_URL}
+      - BUNDLER_URL=${BUNDLER_URL:-https://api.pimlico.io/v2/8453/rpc?apikey=pim_PuGohRASMe6FsMfoB9gx6N}
+      - PAYMASTER_URL=${PAYMASTER_URL:-https://api.pimlico.io/v2/8453/rpc?apikey=pim_PuGohRASMe6FsMfoB9gx6N}
+      - ENTRY_POINT_ADDRESS=0x5FF137D4b0FDCD49DcA30c7CF57E578a026d2789
+      - VAULT_ADDRESS=${VAULT_ADDRESS:-0x66794fC75C351ad9677cB00B2043868C11dfcadA}
       - JWT_SECRET=${JWT_SECRET:-change-me-in-production}
       - RATE_LIMIT_RPS=1000
     depends_on:
