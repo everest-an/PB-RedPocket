@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"math/big"
 	"math/rand"
 	"time"
 
@@ -183,7 +184,9 @@ func (s *RedPocketService) Claim(ctx context.Context, req *ClaimRequest) (*Claim
 	}
 
 	// 9. Execute transfer (async in production)
-	txHash, err := s.walletSvc.TransferToken(ctx, wallet, rp.TokenAddress, claimAmount)
+	// Convert claimAmount to big.Int (assuming 6 decimals for USDC)
+	amountBigInt := floatToBigInt(claimAmount, 6)
+	txHash, err := s.walletSvc.TransferToken(ctx, wallet, rp.TokenAddress, wallet.Address, amountBigInt)
 	if err != nil {
 		s.claimRepo.UpdateStatus(ctx, claim.ID, "failed", "")
 		return &ClaimResponse{Success: false, Error: "transfer failed"}, nil
@@ -240,4 +243,15 @@ func (s *RedPocketService) calculateClaimAmount(rp *model.RedPocket) float64 {
 
 func (s *RedPocketService) Get(ctx context.Context, id string) (*model.RedPocket, error) {
 	return s.rpRepo.GetByID(ctx, id)
+}
+
+// floatToBigInt converts a float amount to big.Int with specified decimals
+func floatToBigInt(amount float64, decimals int) *big.Int {
+	// Multiply by 10^decimals
+	multiplier := new(big.Float).SetInt(new(big.Int).Exp(big.NewInt(10), big.NewInt(int64(decimals)), nil))
+	amountFloat := new(big.Float).SetFloat64(amount)
+	result := new(big.Float).Mul(amountFloat, multiplier)
+	
+	intResult, _ := result.Int(nil)
+	return intResult
 }
