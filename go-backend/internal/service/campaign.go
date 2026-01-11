@@ -93,6 +93,17 @@ func (s *CampaignService) GetClaims(ctx context.Context, campaignID string, page
 	return s.claimRepo.ListByCampaign(ctx, campaignID, limit, offset)
 }
 
+func (s *CampaignService) GetAllClaims(ctx context.Context, enterpriseID string, page, limit int) ([]*model.Claim, int64, error) {
+	if page < 1 {
+		page = 1
+	}
+	if limit < 1 || limit > 100 {
+		limit = 10
+	}
+	offset := (page - 1) * limit
+	return s.claimRepo.ListByEnterprise(ctx, enterpriseID, limit, offset)
+}
+
 func (s *CampaignService) GetAnalytics(ctx context.Context, enterpriseID string) (*model.CampaignAnalytics, error) {
 	return s.repo.GetAnalytics(ctx, enterpriseID)
 }

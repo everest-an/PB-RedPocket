@@ -5,7 +5,7 @@ import { useState, useEffect } from "react"
 import { GlassCard } from "@/components/ui/glass-card"
 import { GradientButton } from "@/components/ui/gradient-button"
 import { PlatformIcon } from "@/components/ui/platform-icon"
-import { X, Wallet, CheckCircle, Loader2, AlertCircle } from "lucide-react"
+import { X, Wallet, CheckCircle, Loader2, AlertCircle, Copy } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { useAccount, useWriteContract, useWaitForTransactionReceipt, useReadContract } from 'wagmi'
 import { useConnectModal } from '@rainbow-me/rainbowkit'
@@ -16,6 +16,7 @@ import { TOKEN_ADDRESSES, ERC20_ABI } from '@/lib/web3-config'
 interface CreateCampaignModalProps {
   isOpen: boolean
   onClose: () => void
+  onSuccess?: () => void
 }
 
 type Step = 'form' | 'connect' | 'approve' | 'transfer' | 'creating' | 'success'
@@ -23,7 +24,7 @@ type Step = 'form' | 'connect' | 'approve' | 'transfer' | 'creating' | 'success'
 // Vault address to receive funds (in production, use actual contract)
 const VAULT_ADDRESS = '0x742d35Cc6634C0532925a3b844Bc9e7595f5bE91' as const
 
-export function CreateCampaignModal({ isOpen, onClose }: CreateCampaignModalProps) {
+export function CreateCampaignModal({ isOpen, onClose, onSuccess }: CreateCampaignModalProps) {
   const { openConnectModal } = useConnectModal()
   const { address, isConnected } = useAccount()
   
@@ -180,6 +181,7 @@ export function CreateCampaignModal({ isOpen, onClose }: CreateCampaignModalProp
       if (data.claimLink) {
         setCreatedLink(data.claimLink)
         setStep('success')
+        onSuccess?.()
       } else {
         throw new Error('Failed to create campaign')
       }
@@ -266,29 +268,108 @@ export function CreateCampaignModal({ isOpen, onClose }: CreateCampaignModalProp
 
       case 'success':
         return (
-          <div className="text-center py-8">
+          <div className="text-center py-6">
             <CheckCircle className="w-16 h-16 mx-auto mb-4 text-green-400" />
-            <h3 className="text-xl font-bold text-foreground mb-2">Campaign Created!</h3>
+            <h3 className="text-xl font-bold text-foreground mb-2">Red Pocket Created!</h3>
             <p className="text-muted-foreground mb-4">
-              Share this link with your community
+              Share this link in your {platform} group
             </p>
-            <div className="bg-white/5 rounded-xl p-4 mb-6">
-              <p className="text-sm text-foreground break-all">{createdLink}</p>
+            
+            {/* Claim Link */}
+            <div className="bg-white/5 rounded-xl p-4 mb-4">
+              <p className="text-xs text-muted-foreground mb-1">Claim Link</p>
+              <p className="text-sm text-foreground break-all font-mono">{createdLink}</p>
             </div>
-            <div className="flex gap-3">
-              <GradientButton 
-                onClick={() => navigator.clipboard.writeText(createdLink)}
-                className="flex-1"
-              >
-                Copy Link
-              </GradientButton>
-              <button
-                onClick={() => { resetForm(); onClose(); }}
-                className="flex-1 px-4 py-3 rounded-xl bg-white/10 text-foreground hover:bg-white/20 transition-colors"
-              >
-                Done
-              </button>
+
+            {/* Share Options */}
+            <div className="space-y-3 mb-6">
+              <p className="text-sm text-muted-foreground">Share to:</p>
+              <div className="grid grid-cols-2 gap-3">
+                {platform === 'telegram' && (
+                  <a
+                    href={`https://t.me/share/url?url=${encodeURIComponent(createdLink)}&text=${encodeURIComponent(`🧧 ${campaignName}\n${message || 'Claim your reward!'}\n\n`)}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center justify-center gap-2 p-3 rounded-xl bg-[#0088cc]/20 border border-[#0088cc]/30 text-[#0088cc] hover:bg-[#0088cc]/30 transition-colors"
+                  >
+                    <PlatformIcon platform="telegram" className="w-5 h-5" />
+                    Share to Telegram
+                  </a>
+                )}
+                {platform === 'discord' && (
+                  <button
+                    onClick={() => {
+                      const text = `🧧 **${campaignName}**\n${message || 'Claim your reward!'}\n\n${createdLink}`
+                      navigator.clipboard.writeText(text)
+                      alert('Copied! Paste in your Discord channel')
+                    }}
+                    className="flex items-center justify-center gap-2 p-3 rounded-xl bg-[#5865F2]/20 border border-[#5865F2]/30 text-[#5865F2] hover:bg-[#5865F2]/30 transition-colors"
+                  >
+                    <PlatformIcon platform="discord" className="w-5 h-5" />
+                    Copy for Discord
+                  </button>
+                )}
+                {platform === 'whatsapp' && (
+                  <a
+                    href={`https://wa.me/?text=${encodeURIComponent(`🧧 ${campaignName}\n${message || 'Claim your reward!'}\n\n${createdLink}`)}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center justify-center gap-2 p-3 rounded-xl bg-[#25D366]/20 border border-[#25D366]/30 text-[#25D366] hover:bg-[#25D366]/30 transition-colors"
+                  >
+                    <PlatformIcon platform="whatsapp" className="w-5 h-5" />
+                    Share to WhatsApp
+                  </a>
+                )}
+                {platform === 'github' && (
+                  <button
+                    onClick={() => {
+                      const text = `🧧 **${campaignName}**\n\n${message || 'Claim your reward!'}\n\n[Claim Here](${createdLink})`
+                      navigator.clipboard.writeText(text)
+                      alert('Copied! Paste in your GitHub issue or discussion')
+                    }}
+                    className="flex items-center justify-center gap-2 p-3 rounded-xl bg-white/10 border border-white/20 text-foreground hover:bg-white/20 transition-colors"
+                  >
+                    <PlatformIcon platform="github" className="w-5 h-5" />
+                    Copy for GitHub
+                  </button>
+                )}
+                <button
+                  onClick={() => navigator.clipboard.writeText(createdLink)}
+                  className="flex items-center justify-center gap-2 p-3 rounded-xl bg-white/10 border border-white/20 text-foreground hover:bg-white/20 transition-colors"
+                >
+                  <Copy className="w-5 h-5" />
+                  Copy Link
+                </button>
+              </div>
             </div>
+
+            {/* Summary */}
+            <div className="bg-white/5 rounded-xl p-4 mb-6 text-left">
+              <p className="text-xs text-muted-foreground mb-2">Summary</p>
+              <div className="space-y-1 text-sm">
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Total Budget</span>
+                  <span className="text-foreground">{budget} {token}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Red Pockets</span>
+                  <span className="text-foreground">{redPocketCount}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Per Pocket</span>
+                  <span className="text-foreground">
+                    {isLucky ? 'Random' : `${(parseFloat(budget) / parseInt(redPocketCount)).toFixed(2)} ${token}`}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            <button
+              onClick={() => { resetForm(); onClose(); }}
+              className="w-full px-4 py-3 rounded-xl bg-white/10 text-foreground hover:bg-white/20 transition-colors"
+            >
+              Done
+            </button>
           </div>
         )
 

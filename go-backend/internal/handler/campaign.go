@@ -117,13 +117,33 @@ func (h *CampaignHandler) Delete(c *gin.Context) {
 
 func (h *CampaignHandler) ListClaims(c *gin.Context) {
 	campaignID := c.Query("campaignId")
-	if campaignID == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "campaignId is required"})
-		return
-	}
-
+	
 	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
 	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "10"))
+
+	// If no campaignId, list all claims for the enterprise
+	if campaignID == "" {
+		// Get enterprise ID from auth context
+		enterpriseID := "enterprise_default"
+		if id, exists := c.Get("enterpriseId"); exists {
+			enterpriseID = id.(string)
+		}
+		
+		claims, total, err := h.svc.GetAllClaims(c.Request.Context(), enterpriseID, page, limit)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+
+		c.JSON(http.StatusOK, gin.H{
+			"success": true,
+			"claims":  claims,
+			"total":   total,
+			"page":    page,
+			"limit":   limit,
+		})
+		return
+	}
 
 	claims, total, err := h.svc.GetClaims(c.Request.Context(), campaignID, page, limit)
 	if err != nil {

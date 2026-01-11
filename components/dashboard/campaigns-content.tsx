@@ -97,6 +97,44 @@ export function CampaignsContent() {
 
   const copyLink = (id: string) => {
     navigator.clipboard.writeText(`https://protocolbanks.com/claim/${id}`)
+    setOpenMenu(null)
+  }
+
+  const openLink = (id: string) => {
+    window.open(`/claim/${id}`, '_blank')
+    setOpenMenu(null)
+  }
+
+  const handleStatusChange = async (id: string, newStatus: string) => {
+    try {
+      await apiClient.put(`/api/v1/enterprise/campaigns/${id}/status`, { status: newStatus })
+      setCampaigns(prev => prev.map(c => 
+        c.id === id ? { ...c, status: newStatus as Campaign['status'] } : c
+      ))
+      setOpenMenu(null)
+    } catch (err) {
+      console.error("Failed to update status:", err)
+      setError("Failed to update campaign status")
+    }
+  }
+
+  const handleDelete = async (id: string) => {
+    if (!confirm("Are you sure you want to delete this campaign?")) return
+    try {
+      await apiClient.delete(`/api/v1/enterprise/campaigns/${id}`)
+      setCampaigns(prev => prev.filter(c => c.id !== id))
+      setOpenMenu(null)
+    } catch (err) {
+      console.error("Failed to delete campaign:", err)
+      setError("Failed to delete campaign")
+    }
+  }
+
+  const [selectedCampaign, setSelectedCampaign] = useState<Campaign | null>(null)
+
+  const viewDetails = (campaign: Campaign) => {
+    setSelectedCampaign(campaign)
+    setOpenMenu(null)
   }
 
   if (loading && campaigns.length === 0) {
@@ -320,7 +358,10 @@ export function CampaignsContent() {
                       </button>
                       {openMenu === campaign.id && (
                         <div className="absolute right-4 top-12 z-10 w-44 glass rounded-xl border border-white/10 py-1 shadow-xl">
-                          <button className="flex items-center gap-2 w-full px-4 py-2 text-sm text-foreground hover:bg-white/5">
+                          <button 
+                            onClick={() => viewDetails(campaign)}
+                            className="flex items-center gap-2 w-full px-4 py-2 text-sm text-foreground hover:bg-white/5"
+                          >
                             <Eye className="w-4 h-4" /> View Details
                           </button>
                           <button
@@ -329,19 +370,31 @@ export function CampaignsContent() {
                           >
                             <Copy className="w-4 h-4" /> Copy Share Link
                           </button>
-                          <button className="flex items-center gap-2 w-full px-4 py-2 text-sm text-foreground hover:bg-white/5">
+                          <button 
+                            onClick={() => openLink(campaign.id)}
+                            className="flex items-center gap-2 w-full px-4 py-2 text-sm text-foreground hover:bg-white/5"
+                          >
                             <ExternalLink className="w-4 h-4" /> Open Link
                           </button>
                           {campaign.status === "active" ? (
-                            <button className="flex items-center gap-2 w-full px-4 py-2 text-sm text-yellow-400 hover:bg-white/5">
+                            <button 
+                              onClick={() => handleStatusChange(campaign.id, "paused")}
+                              className="flex items-center gap-2 w-full px-4 py-2 text-sm text-yellow-400 hover:bg-white/5"
+                            >
                               <Pause className="w-4 h-4" /> Pause
                             </button>
                           ) : campaign.status === "paused" ? (
-                            <button className="flex items-center gap-2 w-full px-4 py-2 text-sm text-green-400 hover:bg-white/5">
+                            <button 
+                              onClick={() => handleStatusChange(campaign.id, "active")}
+                              className="flex items-center gap-2 w-full px-4 py-2 text-sm text-green-400 hover:bg-white/5"
+                            >
                               <Play className="w-4 h-4" /> Resume
                             </button>
                           ) : null}
-                          <button className="flex items-center gap-2 w-full px-4 py-2 text-sm text-red-400 hover:bg-white/5">
+                          <button 
+                            onClick={() => handleDelete(campaign.id)}
+                            className="flex items-center gap-2 w-full px-4 py-2 text-sm text-red-400 hover:bg-white/5"
+                          >
                             <Trash2 className="w-4 h-4" /> Delete
                           </button>
                         </div>
@@ -379,7 +432,91 @@ export function CampaignsContent() {
       </GlassCard>
 
       {/* Create Campaign Modal */}
-      <CreateCampaignModal isOpen={showCreateModal} onClose={() => setShowCreateModal(false)} />
+      <CreateCampaignModal isOpen={showCreateModal} onClose={() => setShowCreateModal(false)} onSuccess={fetchCampaigns} />
+
+      {/* Campaign Details Modal */}
+      {selectedCampaign && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/80 backdrop-blur-sm" onClick={() => setSelectedCampaign(null)} />
+          <GlassCard className="relative w-full max-w-lg z-10 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-xl font-bold text-foreground">Campaign Details</h2>
+              <button onClick={() => setSelectedCampaign(null)} className="p-2 rounded-lg hover:bg-white/10 transition-colors">
+                <span className="text-muted-foreground">✕</span>
+              </button>
+            </div>
+            
+            <div className="space-y-4">
+              <div className="flex items-center gap-3">
+                <PlatformIcon platform={selectedCampaign.platform} className="w-8 h-8" />
+                <div>
+                  <h3 className="text-lg font-semibold text-foreground">{selectedCampaign.name}</h3>
+                  <p className="text-sm text-muted-foreground capitalize">{selectedCampaign.platform}</p>
+                </div>
+                <span className={cn(
+                  "ml-auto px-2.5 py-1 rounded-full text-xs font-medium border capitalize",
+                  statusColors[selectedCampaign.status]
+                )}>
+                  {selectedCampaign.status}
+                </span>
+              </div>
+
+              {selectedCampaign.description && (
+                <p className="text-muted-foreground">{selectedCampaign.description}</p>
+              )}
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="p-4 rounded-xl bg-white/5">
+                  <p className="text-xs text-muted-foreground">Total Budget</p>
+                  <p className="text-xl font-bold text-foreground">${selectedCampaign.totalBudget.toLocaleString()}</p>
+                </div>
+                <div className="p-4 rounded-xl bg-white/5">
+                  <p className="text-xs text-muted-foreground">Spent</p>
+                  <p className="text-xl font-bold text-green-400">${(selectedCampaign.spentBudget || 0).toLocaleString()}</p>
+                </div>
+                <div className="p-4 rounded-xl bg-white/5">
+                  <p className="text-xs text-muted-foreground">Total Claims</p>
+                  <p className="text-xl font-bold text-foreground">{selectedCampaign.totalClaims || 0}</p>
+                </div>
+                <div className="p-4 rounded-xl bg-white/5">
+                  <p className="text-xs text-muted-foreground">Red Pockets</p>
+                  <p className="text-xl font-bold text-foreground">{selectedCampaign.totalRedPockets || 0}</p>
+                </div>
+              </div>
+
+              <div className="p-4 rounded-xl bg-white/5">
+                <p className="text-xs text-muted-foreground mb-2">Claim Progress</p>
+                <div className="h-2 bg-neutral-800 rounded-full overflow-hidden">
+                  <div
+                    className="h-full bg-gradient-to-r from-orange-500 to-pink-500 rounded-full transition-all"
+                    style={{ width: `${selectedCampaign.totalRedPockets ? ((selectedCampaign.totalClaims || 0) / selectedCampaign.totalRedPockets) * 100 : 0}%` }}
+                  />
+                </div>
+                <p className="text-sm text-muted-foreground mt-2">
+                  {selectedCampaign.totalClaims || 0} of {selectedCampaign.totalRedPockets || 0} claimed
+                </p>
+              </div>
+
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-muted-foreground">Created</span>
+                <span className="text-foreground">{new Date(selectedCampaign.createdAt).toLocaleDateString()}</span>
+              </div>
+
+              <div className="flex gap-3 pt-4">
+                <button
+                  onClick={() => { copyLink(selectedCampaign.id); setSelectedCampaign(null); }}
+                  className="flex-1 py-3 rounded-xl border border-white/10 text-foreground hover:bg-white/5 transition-colors flex items-center justify-center gap-2"
+                >
+                  <Copy className="w-4 h-4" /> Copy Link
+                </button>
+                <GradientButton onClick={() => { openLink(selectedCampaign.id); setSelectedCampaign(null); }} className="flex-1">
+                  <ExternalLink className="w-4 h-4 mr-2" /> Open
+                </GradientButton>
+              </div>
+            </div>
+          </GlassCard>
+        </div>
+      )}
     </div>
   )
 }

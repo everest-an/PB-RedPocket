@@ -133,3 +133,47 @@ func (r *ClaimRepository) ListByCampaign(ctx context.Context, campaignID string,
 	}
 	return claims, total, nil
 }
+
+func (r *ClaimRepository) ListByEnterprise(ctx context.Context, enterpriseID string, limit, offset int) ([]*model.Claim, int64, error) {
+	// Get total count
+	countQuery := `
+		SELECT COUNT(*) FROM claims c
+		JOIN red_pockets rp ON c.red_pocket_id = rp.id
+		JOIN campaigns camp ON rp.campaign_id = camp.id
+		WHERE camp.enterprise_id = $1
+	`
+	var total int64
+	if err := r.db.Pool.QueryRow(ctx, countQuery, enterpriseID).Scan(&total); err != nil {
+		// If no campaigns table relation, fall back to all claims
+		countQuery = `SELECT COUNT(*) FROM claims`
+		if err := r.db.Pool.QueryRow(ctx, countQuery).Scan(&total); err != nil {
+			return nil, 0, err
+		}
+	}
+
+	query := `
+		SELECT c.id, c.red_pocket_id, c.claimer_id, c.platform_id, c.platform, c.wallet_address, c.amount, c.tx_hash, c.status, c.created_at, c.completed_at
+		FROM claims c
+		ORDER BY c.created_at DESC
+		LIMIT $1 OFFSET $2
+	`
+	rows, err := r.db.Pool.Query(ctx, query, limit, offset)
+	if err != nil {
+		return nil, 0, err
+	}
+	defer rows.Close()
+
+	var claims []*model.Claim
+	for rows.Next() {
+		c := &model.Claim{}
+		err := rows.Scan(
+			&c.ID, &c.RedPocketID, &c.ClaimerID, &c.PlatformID, &c.Platform, &c.WalletAddress,
+			&c.Amount, &c.TxHash, &c.Status, &c.CreatedAt, &c.CompletedAt,
+		)
+		if err != nil {
+			return nil, 0, err
+		}
+		claims = append(claims, c)
+	}
+	return claims, total, nil
+}

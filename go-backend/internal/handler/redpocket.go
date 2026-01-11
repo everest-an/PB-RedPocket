@@ -28,19 +28,24 @@ func (h *RedPocketHandler) Create(c *gin.Context) {
 		return
 	}
 
-	// Generate claim links
-	claimLinks := map[string]string{
-		"telegram": "https://t.me/ProtocolBankBot?start=" + rp.ID,
-		"discord":  "https://discord.com/channels/@me?redpocket=" + rp.ID,
-		"whatsapp": "https://wa.me/?text=Claim%20your%20reward%3A%20https%3A%2F%2Fprotocolbanks.com%2Fclaim%2F" + rp.ID,
-		"github":   "https://protocolbanks.com/claim/" + rp.ID,
+	// Generate claim link - use the red pocket ID
+	baseURL := "https://protocolbanks.com"
+	claimLink := baseURL + "/claim/" + rp.ID
+
+	// Platform-specific share links
+	shareLinks := map[string]string{
+		"telegram": "https://t.me/share/url?url=" + claimLink,
+		"discord":  claimLink,
+		"whatsapp": "https://wa.me/?text=" + claimLink,
+		"github":   claimLink,
 	}
 
 	c.JSON(http.StatusOK, gin.H{
 		"success":    true,
 		"redPocket":  rp,
-		"claimLink":  claimLinks[rp.Platform],
-		"embedLink":  "https://protocolbanks.com/claim/" + rp.ID,
+		"claimLink":  claimLink,
+		"shareLink":  shareLinks[rp.Platform],
+		"embedLink":  claimLink,
 	})
 }
 
