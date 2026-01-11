@@ -190,7 +190,7 @@ func (s *WalletService) executeAATransaction(ctx context.Context, wallet *model.
 	// 12. Mark wallet as deployed if this was first tx
 	if !wallet.IsDeployed {
 		wallet.IsDeployed = true
-		_ = s.repo.Update(ctx, wallet)
+		_ = s.repo.UpdateDeployed(ctx, wallet.ID, true)
 	}
 
 	return txHash, nil
