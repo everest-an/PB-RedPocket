@@ -1,43 +1,72 @@
 'use client'
 
-import { useAppKit, useAppKitAccount } from '@reown/appkit/react'
-import { GradientButton } from './gradient-button'
-import { Wallet, LogOut } from 'lucide-react'
+import { ConnectButton as RainbowConnectButton } from '@rainbow-me/rainbowkit'
 
 export function ConnectButton() {
-  const { open } = useAppKit()
-  const { address, isConnected } = useAppKitAccount()
-
-  if (isConnected && address) {
-    return (
-      <button
-        onClick={() => open({ view: 'Account' })}
-        className="flex items-center gap-2 px-4 py-2 rounded-xl bg-white/10 border border-white/20 hover:bg-white/20 transition-colors"
-      >
-        <Wallet className="w-4 h-4 text-orange-400" />
-        <span className="text-sm font-medium text-foreground">
-          {address.slice(0, 6)}...{address.slice(-4)}
-        </span>
-      </button>
-    )
-  }
-
   return (
-    <GradientButton onClick={() => open()} className="flex items-center gap-2">
-      <Wallet className="w-4 h-4" />
-      Connect Wallet
-    </GradientButton>
+    <RainbowConnectButton.Custom>
+      {({
+        account,
+        chain,
+        openAccountModal,
+        openChainModal,
+        openConnectModal,
+        mounted,
+      }) => {
+        const ready = mounted
+        const connected = ready && account && chain
+
+        return (
+          <div
+            {...(!ready && {
+              'aria-hidden': true,
+              style: {
+                opacity: 0,
+                pointerEvents: 'none',
+                userSelect: 'none',
+              },
+            })}
+          >
+            {(() => {
+              if (!connected) {
+                return (
+                  <button
+                    onClick={openConnectModal}
+                    className="w-full px-4 py-3 rounded-xl bg-gradient-to-r from-orange-500 to-pink-500 text-white font-medium hover:opacity-90 transition-opacity"
+                  >
+                    Connect Wallet
+                  </button>
+                )
+              }
+
+              if (chain.unsupported) {
+                return (
+                  <button
+                    onClick={openChainModal}
+                    className="w-full px-4 py-3 rounded-xl bg-red-500/20 border border-red-500/50 text-red-400 font-medium"
+                  >
+                    Wrong network
+                  </button>
+                )
+              }
+
+              return (
+                <button
+                  onClick={openAccountModal}
+                  className="w-full flex items-center gap-2 px-4 py-3 rounded-xl bg-white/10 border border-white/20 hover:bg-white/20 transition-colors"
+                >
+                  <div className="w-2 h-2 rounded-full bg-green-400" />
+                  <span className="text-sm font-medium text-foreground truncate">
+                    {account.displayName}
+                  </span>
+                </button>
+              )
+            })()}
+          </div>
+        )
+      }}
+    </RainbowConnectButton.Custom>
   )
 }
 
-export function useWallet() {
-  const { address, isConnected } = useAppKitAccount()
-  const { open } = useAppKit()
-
-  return {
-    address,
-    isConnected,
-    connect: () => open(),
-    disconnect: () => open({ view: 'Account' })
-  }
-}
+export { useAccount as useWallet } from 'wagmi'

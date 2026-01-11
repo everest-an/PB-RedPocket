@@ -7,8 +7,8 @@ import { GradientButton } from "@/components/ui/gradient-button"
 import { PlatformIcon } from "@/components/ui/platform-icon"
 import { X, Wallet, CheckCircle, Loader2, AlertCircle } from "lucide-react"
 import { cn } from "@/lib/utils"
-import { useAppKit, useAppKitAccount } from '@reown/appkit/react'
-import { useWriteContract, useWaitForTransactionReceipt, useReadContract } from 'wagmi'
+import { useAccount, useWriteContract, useWaitForTransactionReceipt, useReadContract } from 'wagmi'
+import { useConnectModal } from '@rainbow-me/rainbowkit'
 import { parseUnits, formatUnits } from 'viem'
 import { base } from 'wagmi/chains'
 import { TOKEN_ADDRESSES, ERC20_ABI } from '@/lib/web3-config'
@@ -24,8 +24,8 @@ type Step = 'form' | 'connect' | 'approve' | 'transfer' | 'creating' | 'success'
 const VAULT_ADDRESS = '0x742d35Cc6634C0532925a3b844Bc9e7595f5bE91' as const
 
 export function CreateCampaignModal({ isOpen, onClose }: CreateCampaignModalProps) {
-  const { open } = useAppKit()
-  const { address, isConnected } = useAppKitAccount()
+  const { openConnectModal } = useConnectModal()
+  const { address, isConnected } = useAccount()
   
   const [step, setStep] = useState<Step>('form')
   const [platform, setPlatform] = useState<"telegram" | "discord" | "whatsapp" | "github">("telegram")
@@ -199,7 +199,7 @@ export function CreateCampaignModal({ isOpen, onClose }: CreateCampaignModalProp
             <p className="text-muted-foreground mb-6">
               Connect your wallet to create a red pocket campaign
             </p>
-            <GradientButton onClick={() => open()} className="w-full">
+            <GradientButton onClick={() => openConnectModal?.()} className="w-full">
               Connect Wallet
             </GradientButton>
             <button
