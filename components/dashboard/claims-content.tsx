@@ -1,114 +1,26 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect, useCallback } from "react"
 import { GlassCard } from "@/components/ui/glass-card"
 import { GradientButton } from "@/components/ui/gradient-button"
 import { PlatformIcon } from "@/components/ui/platform-icon"
 import { cn } from "@/lib/utils"
-import { Search, Download, ExternalLink, ChevronLeft, ChevronRight, CheckCircle2, Clock, XCircle } from "lucide-react"
+import { apiClient } from "@/lib/api-client"
+import { Search, Download, ExternalLink, ChevronLeft, ChevronRight, CheckCircle2, Clock, XCircle, Loader2, RefreshCw } from "lucide-react"
 
 interface ClaimRecord {
   id: string
-  campaignName: string
+  redPocketId: string
+  claimerId: string
   claimerPlatformId: string
   claimerPlatform: "telegram" | "discord" | "whatsapp" | "github"
+  claimerWalletAddress: string
   amount: number
-  token: string
-  tag: string
   txHash: string
-  status: "success" | "pending" | "failed"
-  claimedAt: string
-  taskLink?: string
+  status: "success" | "pending" | "processing" | "failed"
+  createdAt: string
+  completedAt?: string
 }
-
-const mockClaims: ClaimRecord[] = [
-  {
-    id: "1",
-    campaignName: "Discord Community Airdrop",
-    claimerPlatformId: "@alice_web3",
-    claimerPlatform: "discord",
-    amount: 10,
-    token: "USDC",
-    tag: "Marketing",
-    txHash: "0x1234...5678",
-    status: "success",
-    claimedAt: "2025-01-09 14:32:00",
-  },
-  {
-    id: "2",
-    campaignName: "GitHub Contributors Reward",
-    claimerPlatformId: "bob_dev",
-    claimerPlatform: "github",
-    amount: 50,
-    token: "USDC",
-    tag: "DevBounty",
-    txHash: "0xabcd...efgh",
-    status: "success",
-    claimedAt: "2025-01-09 13:15:00",
-    taskLink: "https://github.com/org/repo/pull/102",
-  },
-  {
-    id: "3",
-    campaignName: "Telegram Marketing Push",
-    claimerPlatformId: "@crypto_fan",
-    claimerPlatform: "telegram",
-    amount: 5,
-    token: "USDC",
-    tag: "Marketing",
-    txHash: "0x9876...5432",
-    status: "pending",
-    claimedAt: "2025-01-09 12:45:00",
-  },
-  {
-    id: "4",
-    campaignName: "WhatsApp Beta Testers",
-    claimerPlatformId: "+1234***5678",
-    claimerPlatform: "whatsapp",
-    amount: 15,
-    token: "USDC",
-    tag: "Testing",
-    txHash: "",
-    status: "failed",
-    claimedAt: "2025-01-09 11:20:00",
-  },
-  {
-    id: "5",
-    campaignName: "GitHub Security Audit",
-    claimerPlatformId: "security_guru",
-    claimerPlatform: "github",
-    amount: 500,
-    token: "USDC",
-    tag: "SecurityFix",
-    txHash: "0xfedc...ba98",
-    status: "success",
-    claimedAt: "2025-01-08 16:00:00",
-    taskLink: "https://github.com/org/repo/issues/45",
-  },
-  {
-    id: "6",
-    campaignName: "Discord Community Airdrop",
-    claimerPlatformId: "@charlie_nft",
-    claimerPlatform: "discord",
-    amount: 10,
-    token: "USDC",
-    tag: "Marketing",
-    txHash: "0x1111...2222",
-    status: "success",
-    claimedAt: "2025-01-08 14:20:00",
-  },
-  {
-    id: "7",
-    campaignName: "Telegram Marketing Push",
-    claimerPlatformId: "@defi_master",
-    claimerPlatform: "telegram",
-    amount: 8,
-    token: "USDC",
-    tag: "Marketing",
-    txHash: "0x3333...4444",
-    status: "success",
-    claimedAt: "2025-01-08 10:45:00",
-  },
-]
 
 const tagColors: Record<string, string> = {
   Marketing: "bg-pink-500/20 text-pink-400 border-pink-500/30",
@@ -117,43 +29,69 @@ const tagColors: Record<string, string> = {
   SecurityFix: "bg-red-500/20 text-red-400 border-red-500/30",
 }
 
+const statusConfig = {
+  success: { icon: CheckCircle2, color: "text-green-400", bg: "bg-green-500/20 border-green-500/30" },
+  pending: { icon: Clock, color: "text-yellow-400", bg: "bg-yellow-500/20 border-yellow-500/30" },
+  processing: { icon: Clock, color: "text-blue-400", bg: "bg-blue-500/20 border-blue-500/30" },
+  failed: { icon: XCircle, color: "text-red-400", bg: "bg-red-500/20 border-red-500/30" },
+}
+
 export function ClaimsContent() {
+  const [claims, setClaims] = useState<ClaimRecord[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const [total, setTotal] = useState(0)
   const [searchQuery, setSearchQuery] = useState("")
   const [filterPlatform, setFilterPlatform] = useState<string>("all")
   const [filterStatus, setFilterStatus] = useState<string>("all")
-  const [filterTag, setFilterTag] = useState<string>("all")
   const [currentPage, setCurrentPage] = useState(1)
+  const pageSize = 20
 
-  const statusConfig = {
-    success: { icon: CheckCircle2, color: "text-green-400", bg: "bg-green-500/20 border-green-500/30" },
-    pending: { icon: Clock, color: "text-yellow-400", bg: "bg-yellow-500/20 border-yellow-500/30" },
-    failed: { icon: XCircle, color: "text-red-400", bg: "bg-red-500/20 border-red-500/30" },
-  }
+  const fetchClaims = useCallback(async () => {
+    try {
+      setLoading(true)
+      setError(null)
+      const response = await apiClient.getClaims({ page: currentPage, limit: pageSize }) as { 
+        claims: ClaimRecord[], 
+        total: number 
+      }
+      setClaims(response.claims || [])
+      setTotal(response.total || 0)
+    } catch (err) {
+      console.error("Failed to fetch claims:", err)
+      setError("Failed to load claims. Please try again.")
+    } finally {
+      setLoading(false)
+    }
+  }, [currentPage])
 
-  const filteredClaims = mockClaims.filter((c) => {
+  useEffect(() => {
+    fetchClaims()
+  }, [fetchClaims])
+
+  const filteredClaims = claims.filter((c) => {
     if (filterPlatform !== "all" && c.claimerPlatform !== filterPlatform) return false
     if (filterStatus !== "all" && c.status !== filterStatus) return false
-    if (filterTag !== "all" && c.tag !== filterTag) return false
     if (searchQuery && !c.claimerPlatformId.toLowerCase().includes(searchQuery.toLowerCase())) return false
     return true
   })
 
   const totalAmount = filteredClaims.reduce((a, c) => a + c.amount, 0)
-  const uniqueTags = [...new Set(mockClaims.map((c) => c.tag))]
+  const successCount = filteredClaims.filter((c) => c.status === "success").length
+  const pendingCount = filteredClaims.filter((c) => c.status === "pending" || c.status === "processing").length
 
   const exportCSV = () => {
-    const headers = ["ID", "Campaign", "Claimer", "Platform", "Amount", "Token", "Tag", "Status", "Date", "TX Hash"]
+    const headers = ["ID", "RedPocket ID", "Claimer", "Platform", "Wallet", "Amount", "Status", "Date", "TX Hash"]
     const rows = filteredClaims.map((c) => [
       c.id,
-      c.campaignName,
+      c.redPocketId,
       c.claimerPlatformId,
       c.claimerPlatform,
+      c.claimerWalletAddress,
       c.amount,
-      c.token,
-      c.tag,
       c.status,
-      c.claimedAt,
-      c.txHash,
+      c.createdAt,
+      c.txHash || "",
     ])
     const csv = [headers.join(","), ...rows.map((r) => r.join(","))].join("\n")
     const blob = new Blob([csv], { type: "text/csv" })
@@ -164,6 +102,14 @@ export function ClaimsContent() {
     a.click()
   }
 
+  if (loading && claims.length === 0) {
+    return (
+      <div className="p-6 lg:p-8 flex items-center justify-center min-h-[400px]">
+        <Loader2 className="w-8 h-8 animate-spin text-orange-500" />
+      </div>
+    )
+  }
+
   return (
     <div className="p-6 lg:p-8 space-y-6">
       {/* Header */}
@@ -172,17 +118,32 @@ export function ClaimsContent() {
           <h1 className="text-2xl font-bold text-foreground">Claims</h1>
           <p className="text-muted-foreground">Track all claim records with full audit trail</p>
         </div>
-        <GradientButton onClick={exportCSV} variant="secondary" className="flex items-center gap-2">
-          <Download className="w-5 h-5" />
-          Export CSV
-        </GradientButton>
+        <div className="flex gap-2">
+          <button
+            onClick={fetchClaims}
+            className="p-2 rounded-lg hover:bg-white/10 transition-colors"
+            title="Refresh"
+          >
+            <RefreshCw className={cn("w-5 h-5 text-muted-foreground", loading && "animate-spin")} />
+          </button>
+          <GradientButton onClick={exportCSV} variant="secondary" className="flex items-center gap-2">
+            <Download className="w-5 h-5" />
+            Export CSV
+          </GradientButton>
+        </div>
       </div>
+
+      {error && (
+        <GlassCard className="p-4 border-red-500/30 bg-red-500/10">
+          <p className="text-red-400">{error}</p>
+        </GlassCard>
+      )}
 
       {/* Summary Cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <GlassCard className="p-4">
           <p className="text-sm text-muted-foreground">Total Claims</p>
-          <p className="text-2xl font-bold text-foreground mt-1">{filteredClaims.length}</p>
+          <p className="text-2xl font-bold text-foreground mt-1">{total}</p>
         </GlassCard>
         <GlassCard className="p-4">
           <p className="text-sm text-muted-foreground">Total Amount</p>
@@ -191,17 +152,12 @@ export function ClaimsContent() {
         <GlassCard className="p-4">
           <p className="text-sm text-muted-foreground">Success Rate</p>
           <p className="text-2xl font-bold text-green-400 mt-1">
-            {filteredClaims.length > 0
-              ? Math.round((filteredClaims.filter((c) => c.status === "success").length / filteredClaims.length) * 100)
-              : 0}
-            %
+            {filteredClaims.length > 0 ? Math.round((successCount / filteredClaims.length) * 100) : 0}%
           </p>
         </GlassCard>
         <GlassCard className="p-4">
           <p className="text-sm text-muted-foreground">Pending</p>
-          <p className="text-2xl font-bold text-yellow-400 mt-1">
-            {filteredClaims.filter((c) => c.status === "pending").length}
-          </p>
+          <p className="text-2xl font-bold text-yellow-400 mt-1">{pendingCount}</p>
         </GlassCard>
       </div>
 
@@ -238,19 +194,8 @@ export function ClaimsContent() {
               <option value="all">All Status</option>
               <option value="success">Success</option>
               <option value="pending">Pending</option>
+              <option value="processing">Processing</option>
               <option value="failed">Failed</option>
-            </select>
-            <select
-              value={filterTag}
-              onChange={(e) => setFilterTag(e.target.value)}
-              className="px-4 py-2.5 rounded-xl bg-white/5 border border-white/10 text-foreground focus:outline-none focus:border-orange-500/50"
-            >
-              <option value="all">All Tags</option>
-              {uniqueTags.map((tag) => (
-                <option key={tag} value={tag}>
-                  {tag}
-                </option>
-              ))}
             </select>
           </div>
         </div>
@@ -263,89 +208,84 @@ export function ClaimsContent() {
             <thead>
               <tr className="border-b border-white/10">
                 <th className="text-left p-4 text-sm font-medium text-muted-foreground">Claimer</th>
-                <th className="text-left p-4 text-sm font-medium text-muted-foreground">Campaign</th>
+                <th className="text-left p-4 text-sm font-medium text-muted-foreground">Wallet</th>
                 <th className="text-left p-4 text-sm font-medium text-muted-foreground">Amount</th>
-                <th className="text-left p-4 text-sm font-medium text-muted-foreground">Tag</th>
                 <th className="text-left p-4 text-sm font-medium text-muted-foreground">Status</th>
                 <th className="text-left p-4 text-sm font-medium text-muted-foreground">Date</th>
-                <th className="text-right p-4 text-sm font-medium text-muted-foreground">Actions</th>
+                <th className="text-right p-4 text-sm font-medium text-muted-foreground">TX Hash</th>
               </tr>
             </thead>
             <tbody>
-              {filteredClaims.map((claim) => {
-                const StatusIcon = statusConfig[claim.status].icon
-                return (
-                  <tr key={claim.id} className="border-b border-white/5 hover:bg-white/5 transition-colors">
-                    <td className="p-4">
-                      <div className="flex items-center gap-3">
-                        <PlatformIcon platform={claim.claimerPlatform} className="w-5 h-5" />
-                        <div>
-                          <p className="font-medium text-foreground">{claim.claimerPlatformId}</p>
-                          <p className="text-xs text-muted-foreground capitalize">{claim.claimerPlatform}</p>
+              {filteredClaims.length === 0 ? (
+                <tr>
+                  <td colSpan={6} className="p-8 text-center text-muted-foreground">
+                    {claims.length === 0 ? "No claims yet." : "No claims match your filters."}
+                  </td>
+                </tr>
+              ) : (
+                filteredClaims.map((claim) => {
+                  const status = claim.status as keyof typeof statusConfig
+                  const StatusIcon = statusConfig[status]?.icon || Clock
+                  const statusStyle = statusConfig[status] || statusConfig.pending
+                  return (
+                    <tr key={claim.id} className="border-b border-white/5 hover:bg-white/5 transition-colors">
+                      <td className="p-4">
+                        <div className="flex items-center gap-3">
+                          <PlatformIcon platform={claim.claimerPlatform} className="w-5 h-5" />
+                          <div>
+                            <p className="font-medium text-foreground">{claim.claimerPlatformId}</p>
+                            <p className="text-xs text-muted-foreground capitalize">{claim.claimerPlatform}</p>
+                          </div>
                         </div>
-                      </div>
-                    </td>
-                    <td className="p-4">
-                      <p className="text-sm text-foreground">{claim.campaignName}</p>
-                      {claim.taskLink && (
-                        <a
-                          href={claim.taskLink}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-xs text-cyan-400 hover:underline flex items-center gap-1 mt-0.5"
-                        >
-                          View Task <ExternalLink className="w-3 h-3" />
-                        </a>
-                      )}
-                    </td>
-                    <td className="p-4">
-                      <p className="text-sm font-medium text-foreground">
-                        {claim.amount} {claim.token}
-                      </p>
-                    </td>
-                    <td className="p-4">
-                      <span
-                        className={cn(
-                          "px-2.5 py-1 rounded-full text-xs font-medium border",
-                          tagColors[claim.tag] || "bg-neutral-500/20 text-neutral-400 border-neutral-500/30",
+                      </td>
+                      <td className="p-4">
+                        <p className="text-sm font-mono text-foreground truncate max-w-[120px]">
+                          {claim.claimerWalletAddress ? `${claim.claimerWalletAddress.slice(0, 6)}...${claim.claimerWalletAddress.slice(-4)}` : "-"}
+                        </p>
+                      </td>
+                      <td className="p-4">
+                        <p className="text-sm font-medium text-foreground">{claim.amount} USDC</p>
+                      </td>
+                      <td className="p-4">
+                        <div className="flex items-center gap-2">
+                          <StatusIcon className={cn("w-4 h-4", statusStyle.color)} />
+                          <span
+                            className={cn(
+                              "px-2.5 py-1 rounded-full text-xs font-medium border capitalize",
+                              statusStyle.bg,
+                              statusStyle.color,
+                            )}
+                          >
+                            {claim.status}
+                          </span>
+                        </div>
+                      </td>
+                      <td className="p-4">
+                        <p className="text-sm text-foreground">
+                          {new Date(claim.createdAt).toLocaleDateString()}
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          {new Date(claim.createdAt).toLocaleTimeString()}
+                        </p>
+                      </td>
+                      <td className="p-4 text-right">
+                        {claim.txHash ? (
+                          <a
+                            href={`https://basescan.org/tx/${claim.txHash}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-xs text-foreground transition-colors"
+                          >
+                            {claim.txHash.slice(0, 6)}...{claim.txHash.slice(-4)} <ExternalLink className="w-3 h-3" />
+                          </a>
+                        ) : (
+                          <span className="text-xs text-muted-foreground">-</span>
                         )}
-                      >
-                        {claim.tag}
-                      </span>
-                    </td>
-                    <td className="p-4">
-                      <div className="flex items-center gap-2">
-                        <StatusIcon className={cn("w-4 h-4", statusConfig[claim.status].color)} />
-                        <span
-                          className={cn(
-                            "px-2.5 py-1 rounded-full text-xs font-medium border capitalize",
-                            statusConfig[claim.status].bg,
-                            statusConfig[claim.status].color,
-                          )}
-                        >
-                          {claim.status}
-                        </span>
-                      </div>
-                    </td>
-                    <td className="p-4">
-                      <p className="text-sm text-foreground">{claim.claimedAt.split(" ")[0]}</p>
-                      <p className="text-xs text-muted-foreground">{claim.claimedAt.split(" ")[1]}</p>
-                    </td>
-                    <td className="p-4 text-right">
-                      {claim.txHash && (
-                        <a
-                          href={`https://basescan.org/tx/${claim.txHash}`}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-xs text-foreground transition-colors"
-                        >
-                          {claim.txHash} <ExternalLink className="w-3 h-3" />
-                        </a>
-                      )}
-                    </td>
-                  </tr>
-                )
-              })}
+                      </td>
+                    </tr>
+                  )
+                })
+              )}
             </tbody>
           </table>
         </div>
@@ -353,7 +293,7 @@ export function ClaimsContent() {
         {/* Pagination */}
         <div className="p-4 border-t border-white/10 flex items-center justify-between">
           <p className="text-sm text-muted-foreground">
-            Showing {filteredClaims.length} of {mockClaims.length} claims
+            Showing {filteredClaims.length} of {total} claims
           </p>
           <div className="flex items-center gap-2">
             <button
@@ -366,7 +306,8 @@ export function ClaimsContent() {
             <span className="px-3 py-1 rounded-lg bg-white/10 text-sm text-foreground">{currentPage}</span>
             <button
               onClick={() => setCurrentPage((p) => p + 1)}
-              className="p-2 rounded-lg hover:bg-white/10 transition-colors"
+              className="p-2 rounded-lg hover:bg-white/10 transition-colors disabled:opacity-50"
+              disabled={currentPage * pageSize >= total}
             >
               <ChevronRight className="w-5 h-5 text-muted-foreground" />
             </button>

@@ -1,11 +1,12 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect, useCallback } from "react"
 import { GlassCard } from "@/components/ui/glass-card"
 import { GradientButton } from "@/components/ui/gradient-button"
 import { PlatformIcon } from "@/components/ui/platform-icon"
 import { CreateCampaignModal } from "@/components/dashboard/create-campaign-modal"
 import { cn } from "@/lib/utils"
+import { apiClient } from "@/lib/api-client"
 import {
   Plus,
   Search,
@@ -22,6 +23,8 @@ import {
   DollarSign,
   Users,
   TrendingUp,
+  Loader2,
+  RefreshCw,
 } from "lucide-react"
 
 interface Campaign {
@@ -30,87 +33,13 @@ interface Campaign {
   description: string
   platform: "telegram" | "discord" | "whatsapp" | "github"
   tag: string
-  budget: number
-  spent: number
-  claims: number
+  totalBudget: number
+  spentBudget: number
+  totalClaims: number
   totalRedPockets: number
   status: "active" | "paused" | "completed"
   createdAt: string
-  shareLink: string
 }
-
-const mockCampaigns: Campaign[] = [
-  {
-    id: "1",
-    name: "Discord Community Airdrop",
-    description: "New year celebration for community members",
-    platform: "discord",
-    tag: "Marketing",
-    budget: 5000,
-    spent: 2340,
-    claims: 234,
-    totalRedPockets: 500,
-    status: "active",
-    createdAt: "2025-01-05",
-    shareLink: "https://protocolbank.com/claim/abc123",
-  },
-  {
-    id: "2",
-    name: "Telegram Marketing Push",
-    description: "Q1 marketing campaign for Telegram users",
-    platform: "telegram",
-    tag: "Marketing",
-    budget: 3000,
-    spent: 3000,
-    claims: 450,
-    totalRedPockets: 450,
-    status: "completed",
-    createdAt: "2025-01-01",
-    shareLink: "https://protocolbank.com/claim/def456",
-  },
-  {
-    id: "3",
-    name: "GitHub Contributors Reward",
-    description: "Bug bounty rewards for open source contributors",
-    platform: "github",
-    tag: "DevBounty",
-    budget: 2000,
-    spent: 800,
-    claims: 40,
-    totalRedPockets: 100,
-    status: "active",
-    createdAt: "2025-01-08",
-    shareLink: "https://protocolbank.com/claim/ghi789",
-  },
-  {
-    id: "4",
-    name: "WhatsApp Beta Testers",
-    description: "Rewards for beta testing participants",
-    platform: "whatsapp",
-    tag: "Testing",
-    budget: 1500,
-    spent: 0,
-    claims: 0,
-    totalRedPockets: 150,
-    status: "paused",
-    createdAt: "2025-01-07",
-    shareLink: "https://protocolbank.com/claim/jkl012",
-  },
-  {
-    id: "5",
-    name: "GitHub Security Audit",
-    description: "Security vulnerability bounty program",
-    platform: "github",
-    tag: "SecurityFix",
-    budget: 10000,
-    spent: 4500,
-    claims: 15,
-    totalRedPockets: 50,
-    status: "active",
-    createdAt: "2025-01-03",
-    shareLink: "https://protocolbank.com/claim/mno345",
-  },
-]
 
 const tagColors: Record<string, string> = {
   Marketing: "bg-pink-500/20 text-pink-400 border-pink-500/30",
@@ -119,29 +48,63 @@ const tagColors: Record<string, string> = {
   SecurityFix: "bg-red-500/20 text-red-400 border-red-500/30",
 }
 
+const statusColors = {
+  active: "bg-green-500/20 text-green-400 border-green-500/30",
+  paused: "bg-yellow-500/20 text-yellow-400 border-yellow-500/30",
+  completed: "bg-neutral-500/20 text-neutral-400 border-neutral-500/30",
+}
+
 export function CampaignsContent() {
+  const [campaigns, setCampaigns] = useState<Campaign[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
   const [showCreateModal, setShowCreateModal] = useState(false)
   const [searchQuery, setSearchQuery] = useState("")
   const [filterPlatform, setFilterPlatform] = useState<string>("all")
   const [filterStatus, setFilterStatus] = useState<string>("all")
   const [openMenu, setOpenMenu] = useState<string | null>(null)
   const [currentPage, setCurrentPage] = useState(1)
+  const pageSize = 10
 
-  const statusColors = {
-    active: "bg-green-500/20 text-green-400 border-green-500/30",
-    paused: "bg-yellow-500/20 text-yellow-400 border-yellow-500/30",
-    completed: "bg-neutral-500/20 text-neutral-400 border-neutral-500/30",
-  }
+  const fetchCampaigns = useCallback(async () => {
+    try {
+      setLoading(true)
+      setError(null)
+      const response = await apiClient.getCampaigns({ page: currentPage, limit: pageSize }) as { campaigns: Campaign[], total: number }
+      setCampaigns(response.campaigns || [])
+    } catch (err) {
+      console.error("Failed to fetch campaigns:", err)
+      setError("Failed to load campaigns. Please try again.")
+    } finally {
+      setLoading(false)
+    }
+  }, [currentPage])
 
-  const filteredCampaigns = mockCampaigns.filter((c) => {
+  useEffect(() => {
+    fetchCampaigns()
+  }, [fetchCampaigns])
+
+  const filteredCampaigns = campaigns.filter((c) => {
     if (filterPlatform !== "all" && c.platform !== filterPlatform) return false
     if (filterStatus !== "all" && c.status !== filterStatus) return false
     if (searchQuery && !c.name.toLowerCase().includes(searchQuery.toLowerCase())) return false
     return true
   })
 
-  const copyLink = (link: string) => {
-    navigator.clipboard.writeText(link)
+  const totalSpent = campaigns.reduce((a, c) => a + (c.spentBudget || 0), 0)
+  const totalClaims = campaigns.reduce((a, c) => a + (c.totalClaims || 0), 0)
+  const activeCampaigns = campaigns.filter((c) => c.status === "active").length
+
+  const copyLink = (id: string) => {
+    navigator.clipboard.writeText(`https://protocolbanks.com/claim/${id}`)
+  }
+
+  if (loading && campaigns.length === 0) {
+    return (
+      <div className="p-6 lg:p-8 flex items-center justify-center min-h-[400px]">
+        <Loader2 className="w-8 h-8 animate-spin text-orange-500" />
+      </div>
+    )
   }
 
   return (
@@ -152,11 +115,26 @@ export function CampaignsContent() {
           <h1 className="text-2xl font-bold text-foreground">Campaigns</h1>
           <p className="text-muted-foreground">Manage all your RedPocket campaigns</p>
         </div>
-        <GradientButton onClick={() => setShowCreateModal(true)} className="flex items-center gap-2">
-          <Plus className="w-5 h-5" />
-          Create Campaign
-        </GradientButton>
+        <div className="flex gap-2">
+          <button
+            onClick={fetchCampaigns}
+            className="p-2 rounded-lg hover:bg-white/10 transition-colors"
+            title="Refresh"
+          >
+            <RefreshCw className={cn("w-5 h-5 text-muted-foreground", loading && "animate-spin")} />
+          </button>
+          <GradientButton onClick={() => setShowCreateModal(true)} className="flex items-center gap-2">
+            <Plus className="w-5 h-5" />
+            Create Campaign
+          </GradientButton>
+        </div>
       </div>
+
+      {error && (
+        <GlassCard className="p-4 border-red-500/30 bg-red-500/10">
+          <p className="text-red-400">{error}</p>
+        </GlassCard>
+      )}
 
       {/* Stats Summary */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
@@ -166,7 +144,7 @@ export function CampaignsContent() {
               <Calendar className="w-5 h-5 text-orange-400" />
             </div>
             <div>
-              <p className="text-2xl font-bold text-foreground">{mockCampaigns.length}</p>
+              <p className="text-2xl font-bold text-foreground">{campaigns.length}</p>
               <p className="text-xs text-muted-foreground">Total Campaigns</p>
             </div>
           </div>
@@ -177,9 +155,7 @@ export function CampaignsContent() {
               <DollarSign className="w-5 h-5 text-green-400" />
             </div>
             <div>
-              <p className="text-2xl font-bold text-foreground">
-                ${mockCampaigns.reduce((a, c) => a + c.spent, 0).toLocaleString()}
-              </p>
+              <p className="text-2xl font-bold text-foreground">${totalSpent.toLocaleString()}</p>
               <p className="text-xs text-muted-foreground">Total Spent</p>
             </div>
           </div>
@@ -190,9 +166,7 @@ export function CampaignsContent() {
               <Users className="w-5 h-5 text-cyan-400" />
             </div>
             <div>
-              <p className="text-2xl font-bold text-foreground">
-                {mockCampaigns.reduce((a, c) => a + c.claims, 0).toLocaleString()}
-              </p>
+              <p className="text-2xl font-bold text-foreground">{totalClaims.toLocaleString()}</p>
               <p className="text-xs text-muted-foreground">Total Claims</p>
             </div>
           </div>
@@ -203,9 +177,7 @@ export function CampaignsContent() {
               <TrendingUp className="w-5 h-5 text-purple-400" />
             </div>
             <div>
-              <p className="text-2xl font-bold text-foreground">
-                {mockCampaigns.filter((c) => c.status === "active").length}
-              </p>
+              <p className="text-2xl font-bold text-foreground">{activeCampaigns}</p>
               <p className="text-xs text-muted-foreground">Active Now</p>
             </div>
           </div>
@@ -267,103 +239,117 @@ export function CampaignsContent() {
               </tr>
             </thead>
             <tbody>
-              {filteredCampaigns.map((campaign) => (
-                <tr key={campaign.id} className="border-b border-white/5 hover:bg-white/5 transition-colors">
-                  <td className="p-4">
-                    <div>
-                      <p className="font-medium text-foreground">{campaign.name}</p>
-                      <p className="text-xs text-muted-foreground mt-0.5">{campaign.description}</p>
-                      <p className="text-xs text-muted-foreground mt-1">{campaign.createdAt}</p>
-                    </div>
-                  </td>
-                  <td className="p-4">
-                    <div className="flex items-center gap-2">
-                      <PlatformIcon platform={campaign.platform} className="w-5 h-5" />
-                      <span className="text-sm capitalize text-foreground">{campaign.platform}</span>
-                    </div>
-                  </td>
-                  <td className="p-4">
-                    <span
-                      className={cn(
-                        "px-2.5 py-1 rounded-full text-xs font-medium border",
-                        tagColors[campaign.tag] || "bg-neutral-500/20 text-neutral-400 border-neutral-500/30",
-                      )}
-                    >
-                      {campaign.tag}
-                    </span>
-                  </td>
-                  <td className="p-4">
-                    <div>
-                      <p className="text-sm text-foreground font-medium">${campaign.spent.toLocaleString()}</p>
-                      <p className="text-xs text-muted-foreground">of ${campaign.budget.toLocaleString()}</p>
-                    </div>
-                  </td>
-                  <td className="p-4">
-                    <div className="w-32">
-                      <div className="flex justify-between text-xs mb-1">
-                        <span className="text-foreground">
-                          {campaign.claims}/{campaign.totalRedPockets}
-                        </span>
-                        <span className="text-muted-foreground">
-                          {Math.round((campaign.claims / campaign.totalRedPockets) * 100)}%
-                        </span>
-                      </div>
-                      <div className="h-1.5 bg-neutral-800 rounded-full overflow-hidden">
-                        <div
-                          className="h-full bg-gradient-to-r from-orange-500 to-pink-500 rounded-full transition-all"
-                          style={{ width: `${(campaign.claims / campaign.totalRedPockets) * 100}%` }}
-                        />
-                      </div>
-                    </div>
-                  </td>
-                  <td className="p-4">
-                    <span
-                      className={cn(
-                        "px-2.5 py-1 rounded-full text-xs font-medium border capitalize",
-                        statusColors[campaign.status],
-                      )}
-                    >
-                      {campaign.status}
-                    </span>
-                  </td>
-                  <td className="p-4 text-right relative">
-                    <button
-                      onClick={() => setOpenMenu(openMenu === campaign.id ? null : campaign.id)}
-                      className="p-2 rounded-lg hover:bg-white/10 transition-colors"
-                    >
-                      <MoreHorizontal className="w-5 h-5 text-muted-foreground" />
-                    </button>
-                    {openMenu === campaign.id && (
-                      <div className="absolute right-4 top-12 z-10 w-44 glass rounded-xl border border-white/10 py-1 shadow-xl">
-                        <button className="flex items-center gap-2 w-full px-4 py-2 text-sm text-foreground hover:bg-white/5">
-                          <Eye className="w-4 h-4" /> View Details
-                        </button>
-                        <button
-                          onClick={() => copyLink(campaign.shareLink)}
-                          className="flex items-center gap-2 w-full px-4 py-2 text-sm text-foreground hover:bg-white/5"
-                        >
-                          <Copy className="w-4 h-4" /> Copy Share Link
-                        </button>
-                        <button className="flex items-center gap-2 w-full px-4 py-2 text-sm text-foreground hover:bg-white/5">
-                          <ExternalLink className="w-4 h-4" /> Open Link
-                        </button>
-                        {campaign.status === "active" ? (
-                          <button className="flex items-center gap-2 w-full px-4 py-2 text-sm text-yellow-400 hover:bg-white/5">
-                            <Pause className="w-4 h-4" /> Pause
-                          </button>
-                        ) : campaign.status === "paused" ? (
-                          <button className="flex items-center gap-2 w-full px-4 py-2 text-sm text-green-400 hover:bg-white/5">
-                            <Play className="w-4 h-4" /> Resume
-                          </button>
-                        ) : null}
-                        <button className="flex items-center gap-2 w-full px-4 py-2 text-sm text-red-400 hover:bg-white/5">
-                          <Trash2 className="w-4 h-4" /> Delete
-                        </button>
-                      </div>
-                    )}
+              {filteredCampaigns.length === 0 ? (
+                <tr>
+                  <td colSpan={7} className="p-8 text-center text-muted-foreground">
+                    {campaigns.length === 0 ? "No campaigns yet. Create your first campaign!" : "No campaigns match your filters."}
                   </td>
                 </tr>
-              ))}
+              ) : (
+                filteredCampaigns.map((campaign) => (
+                  <tr key={campaign.id} className="border-b border-white/5 hover:bg-white/5 transition-colors">
+                    <td className="p-4">
+                      <div>
+                        <p className="font-medium text-foreground">{campaign.name}</p>
+                        <p className="text-xs text-muted-foreground mt-0.5">{campaign.description}</p>
+                        <p className="text-xs text-muted-foreground mt-1">
+                          {new Date(campaign.createdAt).toLocaleDateString()}
+                        </p>
+                      </div>
+                    </td>
+                    <td className="p-4">
+                      <div className="flex items-center gap-2">
+                        <PlatformIcon platform={campaign.platform} className="w-5 h-5" />
+                        <span className="text-sm capitalize text-foreground">{campaign.platform}</span>
+                      </div>
+                    </td>
+                    <td className="p-4">
+                      <span
+                        className={cn(
+                          "px-2.5 py-1 rounded-full text-xs font-medium border",
+                          tagColors[campaign.tag] || "bg-neutral-500/20 text-neutral-400 border-neutral-500/30",
+                        )}
+                      >
+                        {campaign.tag || "General"}
+                      </span>
+                    </td>
+                    <td className="p-4">
+                      <div>
+                        <p className="text-sm text-foreground font-medium">
+                          ${(campaign.spentBudget || 0).toLocaleString()}
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          of ${(campaign.totalBudget || 0).toLocaleString()}
+                        </p>
+                      </div>
+                    </td>
+                    <td className="p-4">
+                      <div className="w-32">
+                        <div className="flex justify-between text-xs mb-1">
+                          <span className="text-foreground">
+                            {campaign.totalClaims || 0}/{campaign.totalRedPockets || 0}
+                          </span>
+                          <span className="text-muted-foreground">
+                            {campaign.totalRedPockets ? Math.round(((campaign.totalClaims || 0) / campaign.totalRedPockets) * 100) : 0}%
+                          </span>
+                        </div>
+                        <div className="h-1.5 bg-neutral-800 rounded-full overflow-hidden">
+                          <div
+                            className="h-full bg-gradient-to-r from-orange-500 to-pink-500 rounded-full transition-all"
+                            style={{ width: `${campaign.totalRedPockets ? ((campaign.totalClaims || 0) / campaign.totalRedPockets) * 100 : 0}%` }}
+                          />
+                        </div>
+                      </div>
+                    </td>
+                    <td className="p-4">
+                      <span
+                        className={cn(
+                          "px-2.5 py-1 rounded-full text-xs font-medium border capitalize",
+                          statusColors[campaign.status] || statusColors.active,
+                        )}
+                      >
+                        {campaign.status}
+                      </span>
+                    </td>
+                    <td className="p-4 text-right relative">
+                      <button
+                        onClick={() => setOpenMenu(openMenu === campaign.id ? null : campaign.id)}
+                        className="p-2 rounded-lg hover:bg-white/10 transition-colors"
+                      >
+                        <MoreHorizontal className="w-5 h-5 text-muted-foreground" />
+                      </button>
+                      {openMenu === campaign.id && (
+                        <div className="absolute right-4 top-12 z-10 w-44 glass rounded-xl border border-white/10 py-1 shadow-xl">
+                          <button className="flex items-center gap-2 w-full px-4 py-2 text-sm text-foreground hover:bg-white/5">
+                            <Eye className="w-4 h-4" /> View Details
+                          </button>
+                          <button
+                            onClick={() => copyLink(campaign.id)}
+                            className="flex items-center gap-2 w-full px-4 py-2 text-sm text-foreground hover:bg-white/5"
+                          >
+                            <Copy className="w-4 h-4" /> Copy Share Link
+                          </button>
+                          <button className="flex items-center gap-2 w-full px-4 py-2 text-sm text-foreground hover:bg-white/5">
+                            <ExternalLink className="w-4 h-4" /> Open Link
+                          </button>
+                          {campaign.status === "active" ? (
+                            <button className="flex items-center gap-2 w-full px-4 py-2 text-sm text-yellow-400 hover:bg-white/5">
+                              <Pause className="w-4 h-4" /> Pause
+                            </button>
+                          ) : campaign.status === "paused" ? (
+                            <button className="flex items-center gap-2 w-full px-4 py-2 text-sm text-green-400 hover:bg-white/5">
+                              <Play className="w-4 h-4" /> Resume
+                            </button>
+                          ) : null}
+                          <button className="flex items-center gap-2 w-full px-4 py-2 text-sm text-red-400 hover:bg-white/5">
+                            <Trash2 className="w-4 h-4" /> Delete
+                          </button>
+                        </div>
+                      )}
+                    </td>
+                  </tr>
+                ))
+              )}
             </tbody>
           </table>
         </div>
@@ -371,7 +357,7 @@ export function CampaignsContent() {
         {/* Pagination */}
         <div className="p-4 border-t border-white/10 flex items-center justify-between">
           <p className="text-sm text-muted-foreground">
-            Showing {filteredCampaigns.length} of {mockCampaigns.length} campaigns
+            Showing {filteredCampaigns.length} of {campaigns.length} campaigns
           </p>
           <div className="flex items-center gap-2">
             <button

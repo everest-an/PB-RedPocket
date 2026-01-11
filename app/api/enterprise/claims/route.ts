@@ -1,53 +1,36 @@
 import { type NextRequest, NextResponse } from "next/server"
-import type { ClaimRecord } from "@/lib/types"
-
-// Demo claims data
-const demoClaims: ClaimRecord[] = [
-  {
-    id: "claim_1",
-    redPocketId: "demo_123",
-    claimerId: "user_telegram_12345",
-    claimerPlatformId: "12345",
-    claimerPlatform: "telegram",
-    claimerWalletAddress: "0x1234...5678",
-    amount: 50,
-    txHash: "0xabc...def",
-    status: "success",
-    createdAt: new Date(Date.now() - 3600000).toISOString(),
-    completedAt: new Date(Date.now() - 3590000).toISOString(),
-  },
-  {
-    id: "claim_2",
-    redPocketId: "demo_123",
-    claimerId: "user_discord_67890",
-    claimerPlatformId: "67890",
-    claimerPlatform: "discord",
-    claimerWalletAddress: "0x5678...9abc",
-    amount: 25.5,
-    txHash: "0xdef...123",
-    status: "success",
-    createdAt: new Date(Date.now() - 7200000).toISOString(),
-    completedAt: new Date(Date.now() - 7190000).toISOString(),
-  },
-]
+import { API_CONFIG, BACKEND_ENDPOINTS } from "@/app/api/config"
 
 export async function GET(request: NextRequest): Promise<NextResponse> {
-  const campaignId = request.nextUrl.searchParams.get("campaignId")
-  const page = Number(request.nextUrl.searchParams.get("page")) || 1
-  const limit = Number(request.nextUrl.searchParams.get("limit")) || 20
+  try {
+    const searchParams = request.nextUrl.searchParams
+    const page = searchParams.get("page") || "1"
+    const limit = searchParams.get("limit") || "10"
+    const campaignId = searchParams.get("campaignId") || ""
 
-  // Filter and paginate claims
-  const filteredClaims = [...demoClaims]
+    const authHeader = request.headers.get("Authorization") || ""
 
-  const start = (page - 1) * limit
-  const paginatedClaims = filteredClaims.slice(start, start + limit)
+    // Proxy to Go backend
+    const response = await fetch(
+      `${API_CONFIG.baseURL}${BACKEND_ENDPOINTS.getClaims}?page=${page}&limit=${limit}&campaignId=${campaignId}`,
+      {
+        method: "GET",
+        headers: {
+          ...API_CONFIG.headers,
+          Authorization: authHeader,
+        },
+      }
+    )
 
-  return NextResponse.json({
-    success: true,
-    claims: paginatedClaims,
-    total: filteredClaims.length,
-    page,
-    limit,
-    totalPages: Math.ceil(filteredClaims.length / limit),
-  })
+    const data = await response.json()
+    return NextResponse.json(data)
+  } catch (error) {
+    console.error("Get claims proxy error:", error)
+    return NextResponse.json({
+      success: false,
+      claims: [],
+      total: 0,
+      error: "Failed to connect to backend service",
+    })
+  }
 }

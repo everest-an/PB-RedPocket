@@ -1,11 +1,14 @@
 export const API_CONFIG = {
-  // Use environment variable for backend URL
+  // Go backend URL - use environment variable in production
   baseURL: process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080",
   timeout: 30000,
   headers: {
     "Content-Type": "application/json",
   },
 }
+
+// Check if we're in production mode (connected to real backend)
+export const IS_PRODUCTION = process.env.NODE_ENV === "production" && !!process.env.NEXT_PUBLIC_API_URL
 
 export const BACKEND_ENDPOINTS = {
   // RedPocket APIs

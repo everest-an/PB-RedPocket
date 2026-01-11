@@ -108,27 +108,14 @@ export function RedPocketCard({
         onClaim?.(data.claimedAmount, data.walletAddress)
         setTimeout(() => setShowConfetti(false), 3000)
       } else {
-        const finalAmount = isLuckyDraw
-          ? Number((Math.random() * amount).toFixed(2)) + 0.01
-          : amount / (totalCount || 1)
-        const demoWallet = `0x${Math.random().toString(16).slice(2, 10)}...${Math.random().toString(16).slice(2, 6)}`
-
-        setClaimedAmount(Number(finalAmount.toFixed(2)))
-        setWalletAddress(demoWallet)
-        setState("success")
-        setShowConfetti(true)
-        onClaim?.(finalAmount, demoWallet)
-        setTimeout(() => setShowConfetti(false), 3000)
+        // Show error state instead of fake data
+        setState("idle")
+        alert(data.error || "Failed to claim. Please try again.")
       }
-    } catch {
-      const finalAmount = isLuckyDraw ? Number((Math.random() * amount).toFixed(2)) + 0.01 : amount / (totalCount || 1)
-      const demoWallet = `0x${Math.random().toString(16).slice(2, 10)}...${Math.random().toString(16).slice(2, 6)}`
-
-      setClaimedAmount(Number(finalAmount.toFixed(2)))
-      setWalletAddress(demoWallet)
-      setState("success")
-      setShowConfetti(true)
-      setTimeout(() => setShowConfetti(false), 3000)
+    } catch (error) {
+      console.error("Claim error:", error)
+      setState("idle")
+      alert("Network error. Please try again.")
     }
   }
 
