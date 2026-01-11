@@ -3,14 +3,14 @@
 import '@rainbow-me/rainbowkit/styles.css'
 import { getDefaultConfig, RainbowKitProvider, darkTheme } from '@rainbow-me/rainbowkit'
 import { WagmiProvider } from 'wagmi'
-import { base, polygon, mainnet } from 'wagmi/chains'
+import { base, polygon, mainnet, moonbeam, astar } from 'viem/chains'
 import { QueryClientProvider, QueryClient } from '@tanstack/react-query'
 import { ReactNode, useState } from 'react'
 
 const config = getDefaultConfig({
   appName: 'Protocol Bank RedPocket',
   projectId: 'b59d9670de2deec2149dd01a8b937146',
-  chains: [base, polygon, mainnet],
+  chains: [base, polygon, mainnet, moonbeam, astar],
   ssr: true,
 })
 
