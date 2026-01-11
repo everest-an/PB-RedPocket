@@ -2,7 +2,7 @@ import { cookieStorage, createStorage } from 'wagmi'
 import { base, mainnet, polygon } from 'wagmi/chains'
 
 // Reown AppKit Project ID - get from https://cloud.reown.com
-export const projectId = process.env.NEXT_PUBLIC_REOWN_PROJECT_ID || 'demo-project-id'
+export const projectId = process.env.NEXT_PUBLIC_REOWN_PROJECT_ID || 'b59d9670de2deec2149dd01a8b937146'
 
 // Supported chains
 export const chains = [base, polygon, mainnet] as const
