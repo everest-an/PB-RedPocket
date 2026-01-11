@@ -6,6 +6,7 @@ import Image from "next/image"
 import { cn } from "@/lib/utils"
 import { LayoutDashboard, Gift, Users, Settings, LogOut, ChevronLeft, Wallet } from "lucide-react"
 import { useState } from "react"
+import { ConnectButton } from "@/components/ui/connect-button"
 
 const menuItems = [
   { icon: LayoutDashboard, label: "Overview", href: "/dashboard" },
@@ -48,6 +49,17 @@ export function Sidebar() {
         <button onClick={() => setCollapsed(!collapsed)} className="p-2 rounded-lg hover:bg-white/5 transition-colors">
           <ChevronLeft className={cn("w-5 h-5 text-neutral-400 transition-transform", collapsed && "rotate-180")} />
         </button>
+      </div>
+
+      {/* Wallet Connect */}
+      <div className={cn("p-4 border-b border-white/10", collapsed && "px-2")}>
+        {collapsed ? (
+          <div className="flex justify-center">
+            <ConnectButton />
+          </div>
+        ) : (
+          <ConnectButton />
+        )}
       </div>
 
       {/* Navigation */}
