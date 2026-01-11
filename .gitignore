@@ -25,3 +25,12 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# AWS keys and credentials
+*.pem
+*.key
+aws-credentials*
+.aws/
+
+# Nested node_modules
+**/node_modules/
