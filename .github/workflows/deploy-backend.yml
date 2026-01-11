@@ -1,0 +1,64 @@
+name: Deploy Go Backend
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'go-backend/**'
+  workflow_dispatch:
+
+env:
+  AWS_REGION: us-east-1
+  EC2_HOST: 52.91.244.89
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.22'
+
+      - name: Build Go binary
+        working-directory: go-backend
+        run: |
+          go mod tidy
+          CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o server ./cmd/server
+
+      - name: Build Docker image
+        working-directory: go-backend
+        run: |
+          docker build -t redpocket-api:${{ github.sha }} .
+          docker save redpocket-api:${{ github.sha }} | gzip > redpocket-api.tar.gz
+
+      - name: Copy to EC2 and deploy
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ env.EC2_HOST }}
+          username: ubuntu
+          key: ${{ secrets.EC2_SSH_KEY }}
+          source: "go-backend/redpocket-api.tar.gz,go-backend/deploy/docker-compose.prod.yml"
+          target: "/tmp/deploy"
+          strip_components: 1
+
+      - name: Deploy on EC2
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ env.EC2_HOST }}
+          username: ubuntu
+          key: ${{ secrets.EC2_SSH_KEY }}
+          script: |
+            cd /tmp/deploy
+            gunzip -c redpocket-api.tar.gz | docker load
+            docker tag redpocket-api:${{ github.sha }} redpocket-api:latest
+            cd /opt/redpocket || mkdir -p /opt/redpocket
+            cp /tmp/deploy/deploy/docker-compose.prod.yml /opt/redpocket/
+            cd /opt/redpocket
+            docker-compose -f docker-compose.prod.yml up -d
+            docker system prune -f
+            rm -rf /tmp/deploy
